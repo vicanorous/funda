@@ -1,0 +1,6 @@
+{
+  "name": "Funda",
+  "description": "Collaborative treasury and multi-signature joint accounts powered by Pollar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
