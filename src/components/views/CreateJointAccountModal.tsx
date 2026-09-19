@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { PollarWalletService } from '../../lib/pollar/wallet';
 import { JointAccount } from '../../types';
 
 interface CreateJointAccountModalProps {
@@ -12,28 +13,43 @@ export const CreateJointAccountModal: React.FC<CreateJointAccountModalProps> = (
 }) => {
   const [name, setName] = useState('');
   const [category, setCategory] = useState<'ventures' | 'property' | 'community'>('ventures');
+  const [currency, setCurrency] = useState<'USD' | 'NGN'>('USD');
   const [coOwnerEmail, setCoOwnerEmail] = useState('');
-  const [initialDeposit, setInitialDeposit] = useState('1000.00');
+  const [initialDeposit, setInitialDeposit] = useState('5000.00');
   const [isDeploying, setIsDeploying] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name) return;
     setIsDeploying(true);
 
-    setTimeout(() => {
-      setIsDeploying(false);
+    try {
+      const deployment = await PollarWalletService.createVault({
+        name,
+        creatorWallet: '0x8841...9PLR',
+        coOwners: [coOwnerEmail || 'treasury.partner@funda.ng'],
+        initialBalance: parseFloat(initialDeposit) || 5000,
+        currency,
+        quorumNumerator: 2,
+        quorumDenominator: 3,
+      });
+
       onCreate({
         name,
         category,
-        balance: parseFloat(initialDeposit) || 1000,
-        currency: 'USD',
+        balance: deployment.initialBalance,
+        currency: deployment.currency,
+        pollarWalletId: deployment.pollarWalletId,
         governanceRule: 'Multi-Sig 2/3',
         coOwnersCount: 2,
         contributorsCount: 1,
       });
       onClose();
-    }, 1000);
+    } catch (err) {
+      console.error('Failed to deploy vault:', err);
+    } finally {
+      setIsDeploying(false);
+    }
   };
 
   return (
@@ -47,7 +63,7 @@ export const CreateJointAccountModal: React.FC<CreateJointAccountModalProps> = (
               <span className="material-symbols-outlined text-[20px]">add_moderator</span>
             </div>
             <h2 className="font-['Plus_Jakarta_Sans'] text-[17px] font-bold text-[#0b1c30]">
-              Create Joint Account
+              Deploy Multi-Sig Joint Vault
             </h2>
           </div>
           <button
@@ -61,16 +77,43 @@ export const CreateJointAccountModal: React.FC<CreateJointAccountModalProps> = (
         <form onSubmit={handleSubmit} className="space-y-3.5 text-[13px]">
           <div>
             <label className="text-[11px] font-bold text-[#737686] uppercase tracking-wider block mb-1">
-              Account Name
+              Vault Name
             </label>
             <input
               type="text"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Series A Runway, Studio OpEx"
+              placeholder="e.g. Lagos Supply Chain OpEx, Delta Treasury"
               className="w-full px-3 py-2.5 rounded-xl border border-[#c3c6d7] focus:border-[#004ac6] outline-none text-[#0b1c30]"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[11px] font-bold text-[#737686] uppercase tracking-wider block mb-1">
+                Vault Currency
+              </label>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value as any)}
+                className="w-full p-2 bg-[#f8f9ff] border border-[#dce9ff] rounded-xl text-[13px] font-bold text-[#0b1c30] outline-none"
+              >
+                <option value="USD">USD ($)</option>
+                <option value="NGN">NGN (₦)</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-[#737686] uppercase tracking-wider block mb-1">
+                Initial Allocation
+              </label>
+              <input
+                type="number"
+                value={initialDeposit}
+                onChange={(e) => setInitialDeposit(e.target.value)}
+                className="w-full p-2 bg-[#f8f9ff] border border-[#dce9ff] rounded-xl text-[13px] font-bold text-[#0b1c30] outline-none"
+              />
+            </div>
           </div>
 
           <div>
@@ -80,7 +123,7 @@ export const CreateJointAccountModal: React.FC<CreateJointAccountModalProps> = (
             <div className="grid grid-cols-3 gap-2">
               {[
                 { id: 'ventures', label: 'Ventures' },
-                { id: 'property', label: 'Property' },
+                { id: 'property', label: 'Logistics' },
                 { id: 'community', label: 'Community' },
               ].map((c) => (
                 <button
@@ -101,52 +144,40 @@ export const CreateJointAccountModal: React.FC<CreateJointAccountModalProps> = (
 
           <div>
             <label className="text-[11px] font-bold text-[#737686] uppercase tracking-wider block mb-1">
-              Initial Co-Owner Email
+              Add Co-Owner Email (Quorum Signer)
             </label>
             <input
               type="email"
               value={coOwnerEmail}
               onChange={(e) => setCoOwnerEmail(e.target.value)}
-              placeholder="partner@institution.com"
+              placeholder="e.g. treasury.lead@partner.ng"
               className="w-full px-3 py-2.5 rounded-xl border border-[#c3c6d7] focus:border-[#004ac6] outline-none text-[#0b1c30]"
             />
           </div>
 
-          <div>
-            <label className="text-[11px] font-bold text-[#737686] uppercase tracking-wider block mb-1">
-              Initial Treasury Capital (USD)
-            </label>
-            <input
-              type="number"
-              value={initialDeposit}
-              onChange={(e) => setInitialDeposit(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-xl border border-[#c3c6d7] focus:border-[#004ac6] outline-none font-mono font-bold text-[#0b1c30]"
-            />
-          </div>
-
-          <div className="p-3 bg-[#eff4ff] rounded-xl text-[11px] text-[#434655] space-y-1">
-            <span className="font-bold text-[#004ac6] block">Default Pollar Governance</span>
-            <p>
-              Requires <strong>ceil(coowners * 2 / 3) = 2 signatures</strong> for all withdrawal
-              disbursements. Contributors can deposit and inspect the ledger anytime.
-            </p>
+          <div className="p-3 bg-[#eff4ff] rounded-xl text-[12px] space-y-1">
+            <div className="flex justify-between text-[#434655]">
+              <span>Governance Rule:</span>
+              <span className="font-bold text-[#004ac6]">Multi-Sig 2/3 (PRD Formula)</span>
+            </div>
+            <div className="flex justify-between text-[#434655]">
+              <span>Deployment Rail:</span>
+              <span className="font-bold text-[#0b1c30]">Pollar Cryptographic Vault</span>
+            </div>
           </div>
 
           <button
             type="submit"
             disabled={isDeploying || !name}
-            className="w-full py-3 bg-[#004ac6] text-white font-bold rounded-xl text-[14px] hover:bg-[#2563eb] shadow-md transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-3 bg-[#004ac6] text-white rounded-xl font-bold text-[14px] shadow-md hover:bg-[#2563eb] active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
             {isDeploying ? (
               <>
                 <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                <span>Deploying Smart Multi-Sig Vault...</span>
+                <span>Deploying Vault Contract...</span>
               </>
             ) : (
-              <>
-                <span className="material-symbols-outlined text-[18px]">verified_user</span>
-                <span>Deploy Vault with Pollar</span>
-              </>
+              <span>Deploy Joint Vault</span>
             )}
           </button>
         </form>

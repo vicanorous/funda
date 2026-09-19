@@ -1,12 +1,25 @@
 import React, { useState } from 'react';
+import { Transaction } from '../../types';
 
 interface VaultDetailViewProps {
   onBack: () => void;
   onViewLedger: () => void;
+  onVoteDecision?: (txId: string, decision: 'APPROVED' | 'REJECTED') => void;
 }
 
-export const VaultDetailView: React.FC<VaultDetailViewProps> = ({ onBack, onViewLedger }) => {
+export const VaultDetailView: React.FC<VaultDetailViewProps> = ({
+  onBack,
+  onViewLedger,
+  onVoteDecision,
+}) => {
   const [decisionState, setDecisionState] = useState<'pending' | 'approved' | 'rejected'>('pending');
+
+  const handleDecision = (choice: 'approved' | 'rejected') => {
+    setDecisionState(choice);
+    if (onVoteDecision) {
+      onVoteDecision('tx_aws_hosting', choice === 'approved' ? 'APPROVED' : 'REJECTED');
+    }
+  };
 
   return (
     <div className="flex flex-col w-full pb-16 space-y-4">
@@ -18,7 +31,7 @@ export const VaultDetailView: React.FC<VaultDetailViewProps> = ({ onBack, onView
               assured_workload
             </span>
             <span className="text-[11px] font-bold text-[#434655] uppercase tracking-wider">
-              Alpha Ventures Operating
+              Lagos Tech Ventures OpEx
             </span>
           </div>
           <div className="bg-[#dae2fd] text-[#5c647a] px-2 py-0.5 rounded-full flex items-center gap-1">
@@ -32,15 +45,18 @@ export const VaultDetailView: React.FC<VaultDetailViewProps> = ({ onBack, onView
           <span className="text-[12px] text-[#434655] font-medium">Proposed Outflow Amount</span>
           <div className="font-['Plus_Jakarta_Sans'] text-[34px] font-extrabold text-[#0b1c30] tracking-tight mt-0.5 flex items-baseline">
             <span className="text-[22px] text-[#434655] mr-1 font-medium">$</span>
-            <span>6,450.00</span>
+            <span>3,500.00</span>
             <span className="text-[13px] text-[#434655] ml-1.5 font-semibold">USD</span>
           </div>
+          <span className="text-[12px] text-[#007d55] font-semibold">
+            ≈ ₦5,619,250.00 NGN @ 1,605.50
+          </span>
           <div className="mt-2 flex items-center gap-1.5 bg-[#dce9ff] px-3 py-1 rounded-full text-[#434655]">
             <span className="material-symbols-outlined text-[16px] text-[#004ac6]">
               account_balance
             </span>
             <span className="text-[12px] font-semibold">
-              Off-ramp: J.P. Morgan Chase <span className="font-mono">****4812</span>
+              Disburse: GTBank Corporate <span className="font-mono">****4812</span>
             </span>
           </div>
         </div>
@@ -66,7 +82,7 @@ export const VaultDetailView: React.FC<VaultDetailViewProps> = ({ onBack, onView
             format_quote
           </span>
           <p className="text-[13px] text-[#0b1c30] italic leading-snug">
-            Payment for Q3 Server Infrastructure &amp; AWS Cloud hosting invoice{' '}
+            Payment for Q3 Server Infrastructure &amp; Cloud Gateway hosting invoice{' '}
             <span className="font-mono font-bold text-[#004ac6]">#INV-9921</span>
           </p>
         </div>
@@ -74,13 +90,13 @@ export const VaultDetailView: React.FC<VaultDetailViewProps> = ({ onBack, onView
         {/* Proposer Info Strip */}
         <div className="mt-2 flex items-center justify-between pt-1 text-[#434655]">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-7 h-7 rounded-full bg-[#dae2fd] flex items-center justify-center shrink-0">
-              <span className="text-[11px] text-[#131b2e] font-bold">MK</span>
+            <div className="w-7 h-7 rounded-full bg-[#004ac6] text-white flex items-center justify-center shrink-0 text-[11px] font-bold">
+              VN
             </div>
             <div className="truncate flex items-center">
-              <span className="text-[12px] text-[#0b1c30] font-bold">Marcus Kelly</span>
+              <span className="text-[12px] text-[#0b1c30] font-bold">Victor Nwoguji</span>
               <span className="text-[10px] text-[#004ac6] bg-[#d3e4fe] px-1.5 py-0.2 rounded-full ml-1.5 font-bold">
-                Initiator
+                Treasury Lead
               </span>
             </div>
           </div>
@@ -100,202 +116,111 @@ export const VaultDetailView: React.FC<VaultDetailViewProps> = ({ onBack, onView
               Multi-Sig Consensus
             </h2>
           </div>
-          <span className="bg-[#004ac6]/10 text-[#004ac6] font-mono font-bold text-[12px] px-2 py-0.5 rounded-full">
-            2 / 3 Required
+          <span className="text-[11px] font-bold text-[#004ac6] bg-[#dbe1ff] px-2 py-0.5 rounded-full">
+            Quorum: 2 of 3
           </span>
         </div>
 
-        {/* Progress Meter */}
-        <div className="w-full bg-[#e5eeff] rounded-full h-2.5 overflow-hidden flex">
-          <div
-            className="bg-[#006242] h-full transition-all duration-500 rounded-full"
-            style={{ width: decisionState === 'approved' ? '100%' : '66.6%' }}
-          />
-          {decisionState !== 'approved' && <div className="bg-[#004ac6]/20 h-full flex-1" />}
-        </div>
-
-        <div className="flex justify-between items-center text-[#434655]">
-          <span className="text-[11px] font-bold text-[#006242] flex items-center gap-1">
-            <span className="material-symbols-outlined text-[13px]">check_circle</span>
-            {decisionState === 'approved'
-              ? '100% Consensus Sealed'
-              : '66% Consensus Achieved'}
-          </span>
-          <span className="text-[11px] text-[#737686]">
-            {decisionState === 'approved' ? 'Threshold Met' : 'Final Signer Needed'}
-          </span>
-        </div>
-
-        {/* Signers Linear List */}
-        <div className="space-y-2 pt-1">
-          {/* 1. Marcus Kelly */}
-          <div className="flex items-center justify-between p-2 bg-[#eff4ff] rounded-xl">
+        <div className="space-y-2">
+          {/* Signer 1: Victor Nwoguji */}
+          <div className="p-2.5 rounded-xl bg-[#eff4ff] flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <div className="w-8 h-8 rounded-full bg-[#2563eb] text-white flex items-center justify-center text-[11px] font-bold">
-                  MK
-                </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#006242] rounded-full flex items-center justify-center ring-2 ring-white">
-                  <span className="material-symbols-outlined text-[10px] text-white">check</span>
-                </div>
-              </div>
+              <span className="material-symbols-outlined text-[#006242] text-[18px]">
+                check_circle
+              </span>
               <div>
-                <div className="text-[12px] text-[#0b1c30] font-bold">Marcus Kelly</div>
-                <div className="text-[10px] text-[#434655]">Co-Owner • Signer 1</div>
+                <span className="font-bold text-[13px] text-[#0b1c30] block">Victor Nwoguji</span>
+                <span className="text-[10px] text-[#737686]">Co-Owner • Signer 1</span>
               </div>
             </div>
-            <div className="flex items-center gap-1 bg-[#e5eeff] px-2 py-0.5 rounded-full text-[#006242]">
-              <span className="material-symbols-outlined text-[14px]">done_all</span>
-              <span className="text-[11px] font-bold">Approved</span>
-            </div>
+            <span className="text-[11px] font-bold text-[#006242] bg-[#6ffbbe]/40 px-2 py-0.5 rounded-full">
+              Approved
+            </span>
           </div>
 
-          {/* 2. Sarah Chen */}
-          <div className="flex items-center justify-between p-2 bg-[#eff4ff] rounded-xl">
+          {/* Signer 2: Sarah Chen (You) */}
+          <div className="p-2.5 rounded-xl bg-white border border-[#e5eeff] flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <div className="w-8 h-8 rounded-full bg-[#2563eb] text-white flex items-center justify-center text-[11px] font-bold">
-                  SC
-                </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#006242] rounded-full flex items-center justify-center ring-2 ring-white">
-                  <span className="material-symbols-outlined text-[10px] text-white">check</span>
-                </div>
-              </div>
+              <span className="material-symbols-outlined text-[#004ac6] text-[18px]">
+                hourglass_top
+              </span>
               <div>
-                <div className="text-[12px] text-[#0b1c30] font-bold">Sarah Chen</div>
-                <div className="text-[10px] text-[#434655]">Co-Owner • Signer 2</div>
+                <span className="font-bold text-[13px] text-[#0b1c30] block">Sarah Chen (You)</span>
+                <span className="text-[10px] text-[#737686]">Co-Owner • Signer 2</span>
               </div>
             </div>
-            <div className="flex items-center gap-1 bg-[#e5eeff] px-2 py-0.5 rounded-full text-[#006242]">
-              <span className="material-symbols-outlined text-[14px]">done_all</span>
-              <span className="text-[11px] font-bold">Approved</span>
-            </div>
+            <span
+              className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                decisionState === 'approved'
+                  ? 'bg-[#6ffbbe]/40 text-[#006242]'
+                  : decisionState === 'rejected'
+                  ? 'bg-[#ffdad6] text-[#ba1a1a]'
+                  : 'bg-[#dae2fd] text-[#131b2e]'
+              }`}
+            >
+              {decisionState === 'approved'
+                ? 'Approved'
+                : decisionState === 'rejected'
+                ? 'Rejected'
+                : 'Awaiting Signature'}
+            </span>
           </div>
 
-          {/* 3. Alex Vance (Current User) */}
-          <div className="flex items-center justify-between p-2 bg-[#d3e4fe]/40 rounded-xl shadow-xs border border-[#2563eb]/20">
+          {/* Signer 3: Marcus Kelly */}
+          <div className="p-2.5 rounded-xl bg-[#f8f9ff] flex items-center justify-between opacity-70">
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <div className="w-8 h-8 rounded-full bg-[#004ac6] text-white flex items-center justify-center text-[11px] font-bold">
-                  AV
-                </div>
-                {decisionState === 'approved' ? (
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#006242] rounded-full flex items-center justify-center ring-2 ring-white">
-                    <span className="material-symbols-outlined text-[10px] text-white">check</span>
-                  </div>
-                ) : (
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-[#ba1a1a] rounded-full flex items-center justify-center ring-2 ring-white animate-pulse">
-                    <span className="material-symbols-outlined text-[10px] text-white">
-                      priority_high
-                    </span>
-                  </div>
-                )}
-              </div>
+              <span className="material-symbols-outlined text-[#737686] text-[18px]">pending</span>
               <div>
-                <div className="text-[12px] text-[#0b1c30] font-bold flex items-center gap-1">
-                  You (Alex Vance)
-                  <span className="text-[10px] text-[#004ac6] font-bold">(Actionable)</span>
-                </div>
-                <div className="text-[10px] text-[#434655]">Co-Owner • Signer 3</div>
+                <span className="font-bold text-[13px] text-[#0b1c30] block">Marcus Kelly</span>
+                <span className="text-[10px] text-[#737686]">Co-Owner • Signer 3</span>
               </div>
             </div>
-
-            {decisionState === 'approved' ? (
-              <div className="flex items-center gap-1 bg-[#e5eeff] px-2 py-0.5 rounded-full text-[#006242]">
-                <span className="material-symbols-outlined text-[14px]">done_all</span>
-                <span className="text-[11px] font-bold">Approved</span>
-              </div>
-            ) : decisionState === 'rejected' ? (
-              <div className="flex items-center gap-1 bg-[#ffdad6] px-2 py-0.5 rounded-full text-[#ba1a1a]">
-                <span className="material-symbols-outlined text-[14px]">cancel</span>
-                <span className="text-[11px] font-bold">Rejected</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 bg-[#d3e4fe] px-2 py-0.5 rounded-full text-[#ba1a1a] font-bold">
-                <span className="material-symbols-outlined text-[14px]">hourglass_top</span>
-                <span className="text-[10px]">Pending Decision</span>
-              </div>
-            )}
+            <span className="text-[11px] text-[#737686]">Standby</span>
           </div>
-        </div>
-
-        {/* Governance Notice */}
-        <div className="bg-[#eff4ff] rounded-xl p-2.5 flex items-start gap-2 text-[#434655]">
-          <span className="material-symbols-outlined text-[16px] text-[#565e74] mt-0.5 shrink-0">
-            info
-          </span>
-          <p className="text-[11px] leading-snug">
-            Contributors (5 members) have transaction visibility but cannot approve or reject this
-            withdrawal.
-          </p>
         </div>
       </div>
 
-      {/* Interactive Action Execution Module */}
+      {/* Decision Voting Actions */}
       {decisionState === 'pending' ? (
-        <div className="flex flex-col space-y-2 pt-1">
+        <div className="grid grid-cols-2 gap-3 pt-2">
           <button
-            onClick={() => setDecisionState('approved')}
-            className="w-full bg-[#004ac6] hover:bg-[#2563eb] active:scale-[0.98] text-white py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md transition-all cursor-pointer font-bold text-[14px]"
+            onClick={() => handleDecision('rejected')}
+            className="py-3 px-4 rounded-xl border border-[#ba1a1a] text-[#ba1a1a] font-bold text-[14px] hover:bg-[#ffdad6]/40 active:scale-95 transition-all cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[20px]">check_circle</span>
-            <span>Approve Withdrawal (Execute)</span>
+            Reject Withdrawal
           </button>
-
           <button
-            onClick={() => {
-              if (
-                window.confirm(
-                  'Are you sure you want to formally reject Proposal #WD-8492? This action will immediately void the smart contract disbursement.',
-                )
-              ) {
-                setDecisionState('rejected');
-              }
-            }}
-            className="w-full bg-[#e5eeff] text-[#ba1a1a] hover:bg-[#ffdad6] active:scale-[0.98] py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer font-bold text-[14px]"
+            onClick={() => handleDecision('approved')}
+            className="py-3 px-4 rounded-xl bg-[#004ac6] text-white font-bold text-[14px] shadow-md hover:bg-[#2563eb] active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[20px]">cancel</span>
-            <span>Reject Proposal</span>
-          </button>
-        </div>
-      ) : decisionState === 'approved' ? (
-        <div className="bg-[#007d55] text-white rounded-2xl p-4 flex flex-col items-center text-center space-y-2 shadow-md animate-fade-in">
-          <div className="w-12 h-12 rounded-full bg-white text-[#007d55] flex items-center justify-center shadow-sm">
-            <span className="material-symbols-outlined text-[28px]">lock_open</span>
-          </div>
-          <div className="font-['Plus_Jakarta_Sans'] text-[18px] font-bold">
-            Withdrawal Dispatched
-          </div>
-          <p className="text-[12px] text-white/90">
-            Consensus 3 of 3 sealed. Ledger settlement scheduled with J.P. Morgan Chase.
-          </p>
-          <button
-            onClick={onViewLedger}
-            className="mt-2 px-4 py-1.5 bg-white text-[#006242] rounded-xl text-[12px] font-bold cursor-pointer hover:bg-white/90"
-          >
-            View in Auditable Ledger
+            <span className="material-symbols-outlined text-[18px]">check</span>
+            <span>Authorize Sign</span>
           </button>
         </div>
       ) : (
-        <div className="bg-[#ffdad6] text-[#93000a] p-4 rounded-2xl text-center flex flex-col items-center gap-1 shadow-sm">
-          <span className="material-symbols-outlined text-[28px] text-[#ba1a1a]">block</span>
-          <span className="font-['Plus_Jakarta_Sans'] text-[16px] font-bold text-[#ba1a1a]">
-            Proposal Rejected
-          </span>
-          <span className="text-[12px] text-[#93000a]/90">
-            You have voided this disbursement request. Formal rejection broadcast to co-owners.
-          </span>
+        <div className="p-3.5 bg-[#eff4ff] rounded-2xl border border-[#dce9ff] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span
+              className={`material-symbols-outlined text-[20px] ${
+                decisionState === 'approved' ? 'text-[#006242]' : 'text-[#ba1a1a]'
+              }`}
+            >
+              {decisionState === 'approved' ? 'task_alt' : 'cancel'}
+            </span>
+            <span className="font-bold text-[13px] text-[#0b1c30]">
+              {decisionState === 'approved'
+                ? 'Your vote was cryptographically recorded & dispatched.'
+                : 'You have recorded a rejection on this proposal.'}
+            </span>
+          </div>
+          <button
+            onClick={onViewLedger}
+            className="text-[12px] text-[#004ac6] font-bold hover:underline cursor-pointer"
+          >
+            View Ledger
+          </button>
         </div>
       )}
-
-      {/* Security Audit Footer */}
-      <div className="flex items-center justify-center gap-1.5 py-1 text-[#737686]">
-        <span className="material-symbols-outlined text-[16px] text-[#006242]">shield</span>
-        <span className="text-[12px] font-medium">
-          Powered by <span className="font-bold text-[#0b1c30]">Pollar</span> smart escrow ledger
-          stamp
-        </span>
-      </div>
     </div>
   );
 };

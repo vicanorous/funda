@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { usePollar } from '@pollar/react';
 import { Header } from './components/Header';
 import { BottomNav, TabKey } from './components/BottomNav';
 import { HomeView } from './components/views/HomeView';
@@ -13,20 +14,16 @@ import { ActivityView } from './components/views/ActivityView';
 import { MerkleProofModal } from './components/views/MerkleProofModal';
 import { CreateJointAccountModal } from './components/views/CreateJointAccountModal';
 import { DepositResolutionModal } from './components/views/DepositResolutionModal';
-import {
-  INITIAL_JOINT_ACCOUNTS,
-  INITIAL_NOTIFICATIONS,
-  INITIAL_PERSONAL_WALLET,
-  INITIAL_TRANSACTIONS,
-} from './data/mockStore';
-import { JointAccount, Transaction } from './types';
+import { FundaStore } from './lib/pollar/store';
+import { JointAccount, Transaction, PersonalWalletState } from './types';
 
 export default function App() {
+  const pollar = usePollar();
   const [currentRoute, setCurrentRoute] = useState<string>('home');
-  const [jointAccounts, setJointAccounts] = useState<JointAccount[]>(INITIAL_JOINT_ACCOUNTS);
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
-  const [personalWallet, setPersonalWallet] = useState(INITIAL_PERSONAL_WALLET);
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  const [fundaState, setFundaState] = useState(() => FundaStore.loadState());
+  const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'NGN'>(
+    () => FundaStore.loadState().preferredCurrency || 'NGN',
+  );
 
   // Modals state
   const [merkleModal, setMerkleModal] = useState<{ open: boolean; txHash?: string }>({
@@ -36,9 +33,53 @@ export default function App() {
   const [isResolutionOpen, setIsResolutionOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Sync on-chain balance from Pollar SDK
+  useEffect(() => {
+    if (pollar?.walletBalance?.step === 'loaded' && pollar.walletBalance.data?.balances) {
+      let onChainUsd = 0;
+      let onChainNgn = 0;
+      const rawBalances = pollar.walletBalance.data.balances;
+      for (const b of rawBalances) {
+        const val = parseFloat(String(b.balance ?? '0')) || 0;
+        const code = (b.code || '').toUpperCase();
+        if (code === 'USDC' || code === 'USD' || code === 'USDT') {
+          onChainUsd += val;
+        } else if (code === 'NGN' || code === 'NGNC') {
+          onChainNgn += val;
+        } else if (code === 'XLM' || b.type === 'native') {
+          onChainUsd += val * 0.12;
+        } else {
+          onChainUsd += val;
+        }
+      }
+      FundaStore.syncOnChainBalances(onChainUsd, onChainNgn, pollar.wallet?.address);
+    }
+  }, [pollar?.walletBalance, pollar?.wallet?.address]);
+
+  // Sync with FundaStore event system
+  useEffect(() => {
+    const handleStoreUpdate = () => {
+      const freshState = FundaStore.loadState();
+      setFundaState(freshState);
+      setDisplayCurrency(freshState.preferredCurrency || 'NGN');
+    };
+
+    window.addEventListener('funda_state_updated', handleStoreUpdate);
+    return () => {
+      window.removeEventListener('funda_state_updated', handleStoreUpdate);
+    };
+  }, []);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
+    setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleToggleCurrency = () => {
+    const nextCur: 'USD' | 'NGN' = displayCurrency === 'USD' ? 'NGN' : 'USD';
+    setDisplayCurrency(nextCur);
+    FundaStore.setPreferredCurrency(nextCur);
+    showToast(`Display switched to ${nextCur === 'NGN' ? 'Nigerian Naira (₦)' : 'US Dollar ($)'}`);
   };
 
   // Determine active tab for bottom navigation
@@ -61,13 +102,13 @@ export default function App() {
   let showBack = false;
 
   if (currentRoute === 'vault-detail') {
-    headerTitle = 'Vault Multi Sig Detail';
+    headerTitle = 'Vault Multi-Sig Detail';
     showBack = true;
   } else if (currentRoute === 'ledger') {
     headerTitle = 'Auditable Ledger';
     showBack = true;
   } else if (currentRoute === 'wallet') {
-    headerTitle = 'Personal Wallet';
+    headerTitle = 'Personal Treasury';
     showBack = true;
   } else if (currentRoute === 'wallet/fund') {
     headerTitle = 'Deposit Funds';
@@ -76,7 +117,7 @@ export default function App() {
     headerTitle = 'FX Exchange';
     showBack = true;
   } else if (currentRoute === 'wallet/cash-out') {
-    headerTitle = 'Cash Out';
+    headerTitle = 'Disburse Funds';
     showBack = true;
   }
 
@@ -94,125 +135,59 @@ export default function App() {
     }
   };
 
-  // Action callbacks
-  const handleDepositSuccess = (amount: number) => {
-    setPersonalWallet((prev) => ({
-      ...prev,
-      totalUsd: prev.totalUsd + amount,
-      holdings: {
-        ...prev.holdings,
-        usd: prev.holdings.usd + amount,
-      },
-    }));
-
-    const newTx: Transaction = {
-      id: `tx_${Date.now()}`,
-      type: 'DEPOSIT',
-      amount,
-      currency: 'USD',
-      remark: 'Pollar Fast Wire Bank Deposit',
-      initiatedBy: 'usr_alex_vance',
-      initiatorName: 'Alex Vance',
-      status: 'EXECUTED',
-      txHash: `0x${Math.random().toString(16).slice(2, 6)}...${Math.random().toString(16).slice(2, 6)}`,
-      createdAt: 'Just now',
-      timeAgo: 'Just now',
-      requiredSignatures: 0,
-      approvedSignatures: 0,
-      approvals: [],
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-    showToast(`Successfully deposited $${amount.toLocaleString()} USD via Pollar Fast Wire`);
+  // Action callbacks that update the persistent FundaStore
+  const handleDepositSuccess = (amount: number, depositCurrency: 'USD' | 'NGN' = 'NGN') => {
+    FundaStore.addDeposit(amount, depositCurrency, 'Pollar Virtual NUBAN Direct Deposit');
+    showToast(
+      depositCurrency === 'NGN'
+        ? `Deposited ₦${amount.toLocaleString()} NGN via Pollar Virtual NUBAN`
+        : `Deposited $${amount.toLocaleString()} USD via Pollar USD Gateway`,
+    );
     setCurrentRoute('home');
   };
 
-  const handleFxSuccess = (usdSpent: number, hkdGained: number) => {
-    setPersonalWallet((prev) => ({
-      ...prev,
-      holdings: {
-        ...prev.holdings,
-        usd: Math.max(prev.holdings.usd - usdSpent, 0),
-        hkd: prev.holdings.hkd + hkdGained,
-      },
-    }));
-
-    const newTx: Transaction = {
-      id: `tx_${Date.now()}`,
-      type: 'FX_EXCHANGE',
-      amount: usdSpent,
-      currency: 'USD',
-      remark: `Guaranteed FX Conversion to HKD @ 7.8214`,
-      initiatedBy: 'usr_alex_vance',
-      initiatorName: 'Alex Vance',
-      status: 'EXECUTED',
-      txHash: `0x${Math.random().toString(16).slice(2, 6)}...${Math.random().toString(16).slice(2, 6)}`,
-      createdAt: 'Just now',
-      timeAgo: 'Just now',
-      requiredSignatures: 0,
-      approvedSignatures: 0,
-      approvals: [],
-      fxDetails: {
-        receivedAmount: hkdGained,
-        receivedCurrency: 'HKD',
-        rate: 7.8214,
-      },
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-    showToast(`Converted $${usdSpent.toLocaleString()} USD into +HK$ ${hkdGained.toLocaleString()}`);
+  const handleFxSuccess = (
+    fromAmount: number,
+    toAmount: number,
+    fromCurrency: string,
+    toCurrency: string,
+    targetVaultId?: string,
+  ) => {
+    const rate = fromAmount > 0 ? toAmount / fromAmount : 1;
+    FundaStore.executeFxSwap(fromAmount, toAmount, fromCurrency, toCurrency, rate);
+    showToast(
+      `Exchanged ${fromCurrency} ${fromAmount.toLocaleString()} → ${toCurrency} ${toAmount.toLocaleString()}`,
+    );
     setCurrentRoute('home');
   };
 
-  const handleCashOutSuccess = (amount: number, bankDest: string) => {
-    setPersonalWallet((prev) => ({
-      ...prev,
-      totalUsd: Math.max(prev.totalUsd - amount, 0),
-      holdings: {
-        ...prev.holdings,
-        usd: Math.max(prev.holdings.usd - amount, 0),
-      },
-    }));
-
-    const newTx: Transaction = {
-      id: `tx_${Date.now()}`,
-      type: 'WITHDRAWAL',
-      amount,
-      currency: 'USD',
-      remark: `Off-Ramp Transfer to ${bankDest}`,
-      initiatedBy: 'usr_alex_vance',
-      initiatorName: 'Alex Vance',
-      payoutRoute: bankDest,
-      status: 'EXECUTED',
-      txHash: `0x${Math.random().toString(16).slice(2, 6)}...${Math.random().toString(16).slice(2, 6)}`,
-      createdAt: 'Just now',
-      timeAgo: 'Just now',
-      requiredSignatures: 0,
-      approvedSignatures: 0,
-      approvals: [],
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-    showToast(`Dispatched $${amount.toLocaleString()} USD to ${bankDest}`);
+  const handleCashOutSuccess = (
+    amount: number,
+    bankDest: string,
+    currency: 'USD' | 'NGN',
+    fee: number = 0,
+  ) => {
+    FundaStore.executeCashOut(amount, currency, bankDest, fee);
+    showToast(
+      currency === 'NGN'
+        ? `Disbursed ₦${amount.toLocaleString()} NGN to ${bankDest} via NIBSS NIP`
+        : `Disbursed $${amount.toLocaleString()} USD to ${bankDest}`,
+    );
     setCurrentRoute('home');
   };
 
   const handleCreateVault = (newAccountData: Partial<JointAccount>) => {
-    const newVault: JointAccount = {
-      id: `vault_${Date.now()}`,
-      name: newAccountData.name || 'New Joint Vault',
-      pollarWalletId: `plr_vault_${Date.now()}`,
-      createdBy: 'usr_alex_vance',
-      balance: newAccountData.balance || 1000.0,
-      currency: 'USD',
-      governanceRule: 'Multi-Sig 2/3',
-      coOwnersCount: 2,
-      contributorsCount: 1,
-      category: newAccountData.category || 'ventures',
-    };
-    setJointAccounts((prev) => [newVault, ...prev]);
-    showToast(`Deployed new vault "${newVault.name}" on Pollar Core`);
+    const created = FundaStore.createVault(newAccountData);
+    showToast(`Deployed Multi-Sig Vault "${created.name}" on Pollar Core`);
   };
 
   const handleResolveUnknown = (role: 'CONTRIBUTOR' | 'CO_OWNER', memoText: string) => {
-    showToast(`Admitted David O. Miller as ${role === 'CO_OWNER' ? 'Co-Owner' : 'Contributor'}`);
+    showToast(`Admitted Emeka K. Obi as ${role === 'CO_OWNER' ? 'Co-Owner' : 'Contributor'}`);
+  };
+
+  const handleVoteDecision = (txId: string, decision: 'APPROVED' | 'REJECTED') => {
+    FundaStore.voteOnProposal(txId, decision);
+    showToast(`Consensus vote recorded: ${decision}`);
   };
 
   return (
@@ -232,43 +207,55 @@ export default function App() {
         title={headerTitle}
         showBack={showBack}
         onBack={handleBack}
-        notifications={notifications}
+        notifications={fundaState.notifications}
         onSelectNotification={(route) => setCurrentRoute(route)}
         onNavigateProfile={() => setCurrentRoute('wallet')}
+        displayCurrency={displayCurrency}
+        onToggleCurrency={handleToggleCurrency}
+        userProfile={fundaState.user}
       />
 
       {/* Main Responsive View Container (Max-w-md matching the mobile app screens) */}
-      <main className="w-full max-w-md px-4 pt-20 pb-20 flex-1 flex flex-col">
+      <main className="w-full max-w-md px-4 pt-3 flex-1 flex flex-col">
         {currentRoute === 'home' && (
           <HomeView
-            jointAccounts={jointAccounts}
+            jointAccounts={fundaState.jointAccounts}
+            personalWallet={fundaState.personalWallet}
+            transactions={fundaState.transactions}
+            displayCurrency={displayCurrency}
+            onToggleCurrency={handleToggleCurrency}
             onNavigate={(route) => setCurrentRoute(route)}
-            onOpenVault={() => setCurrentRoute('vault-detail')}
+            onOpenVault={(id) => {
+              setCurrentRoute('vault-detail');
+            }}
             onOpenWithdrawalReview={() => setCurrentRoute('vault-detail')}
           />
         )}
 
         {currentRoute === 'joint' && (
           <JointAccountsView
-            jointAccounts={jointAccounts}
-            onOpenVault={() => setCurrentRoute('vault-detail')}
+            jointAccounts={fundaState.jointAccounts}
+            displayCurrency={displayCurrency}
+            onOpenVault={(id) => setCurrentRoute('vault-detail')}
             onOpenWithdrawalReview={() => setCurrentRoute('vault-detail')}
             onOpenLedgerAudit={() => setCurrentRoute('ledger')}
             onOpenCreateModal={() => setIsCreateVaultOpen(true)}
-            onDepositJoint={() => setCurrentRoute('wallet/fund')}
+            onDepositJoint={(vaultId) => setCurrentRoute('wallet/fund')}
           />
         )}
 
         {currentRoute === 'vault-detail' && (
           <VaultDetailView
-            onBack={handleBack}
+            onBack={() => setCurrentRoute('joint')}
             onViewLedger={() => setCurrentRoute('ledger')}
+            onVoteDecision={handleVoteDecision}
           />
         )}
 
         {currentRoute === 'ledger' && (
           <AuditableLedgerView
-            transactions={transactions}
+            transactions={fundaState.transactions}
+            displayCurrency={displayCurrency}
             onOpenMerkleProof={(hash) => setMerkleModal({ open: true, txHash: hash })}
             onOpenDepositResolution={() => setIsResolutionOpen(true)}
           />
@@ -276,44 +263,47 @@ export default function App() {
 
         {currentRoute === 'wallet' && (
           <PersonalWalletView
-            walletState={personalWallet}
+            walletState={fundaState.personalWallet}
+            displayCurrency={displayCurrency}
+            onToggleCurrency={handleToggleCurrency}
             onNavigate={(route) => setCurrentRoute(route)}
           />
         )}
 
         {currentRoute === 'wallet/fund' && (
           <DepositFundsView
-            onBack={handleBack}
-            onSuccess={handleDepositSuccess}
+            onBack={() => setCurrentRoute('home')}
+            onSuccess={(amount, depositCurrency) => handleDepositSuccess(amount, depositCurrency)}
           />
         )}
 
         {currentRoute === 'wallet/exchange' && (
           <FxExchangeView
-            onBack={handleBack}
+            onBack={() => setCurrentRoute('home')}
             onSuccess={handleFxSuccess}
           />
         )}
 
         {currentRoute === 'wallet/cash-out' && (
           <CashOutView
-            onBack={handleBack}
+            onBack={() => setCurrentRoute('home')}
             onSuccess={handleCashOutSuccess}
           />
         )}
 
         {currentRoute === 'activity' && (
           <ActivityView
-            transactions={transactions}
+            transactions={fundaState.transactions}
+            displayCurrency={displayCurrency}
             onOpenMerkleProof={(hash) => setMerkleModal({ open: true, txHash: hash })}
           />
         )}
       </main>
 
-      {/* Persistent Bottom Nav Bar */}
+      {/* Global Bottom Navigation */}
       <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
 
-      {/* Merkle Proof Bottom Sheet Modal */}
+      {/* Merkle Proof Receipt Modal */}
       {merkleModal.open && (
         <MerkleProofModal
           txHash={merkleModal.txHash}
@@ -321,7 +311,7 @@ export default function App() {
         />
       )}
 
-      {/* Create Joint Account Modal */}
+      {/* Create New Joint Account Modal */}
       {isCreateVaultOpen && (
         <CreateJointAccountModal
           onClose={() => setIsCreateVaultOpen(false)}
@@ -329,7 +319,7 @@ export default function App() {
         />
       )}
 
-      {/* Unknown Depositor Resolution Modal */}
+      {/* Resolve Depositor Status Modal */}
       {isResolutionOpen && (
         <DepositResolutionModal
           onClose={() => setIsResolutionOpen(false)}

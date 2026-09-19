@@ -6,8 +6,11 @@ interface HeaderProps {
   showBack?: boolean;
   onBack?: () => void;
   notifications: NotificationItem[];
+  displayCurrency?: 'USD' | 'NGN';
+  onToggleCurrency?: () => void;
   onSelectNotification?: (route: string) => void;
   onNavigateProfile?: () => void;
+  userProfile?: { name?: string; email?: string };
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -15,8 +18,11 @@ export const Header: React.FC<HeaderProps> = ({
   showBack,
   onBack,
   notifications,
+  displayCurrency = 'USD',
+  onToggleCurrency,
   onSelectNotification,
   onNavigateProfile,
+  userProfile,
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
@@ -41,56 +47,68 @@ export const Header: React.FC<HeaderProps> = ({
             className="flex items-center gap-2 cursor-pointer select-none"
           >
             {/* Funda Official Icon Badge */}
-            <div className="w-8 h-8 rounded-xl bg-[#2563eb] flex items-center justify-center text-white shadow-sm font-bold">
+            <div className="w-8 h-8 rounded-xl bg-[#004ac6] flex items-center justify-center text-white shadow-sm font-bold">
               <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
                 <rect x="3" y="5" width="14" height="2.5" rx="1.25" fill="white" />
                 <rect x="3" y="10.5" width="10" height="2.5" rx="1.25" fill="white" />
                 <rect x="3" y="16" width="6" height="2.5" rx="1.25" fill="white" />
-                <circle cx="17.5" cy="11.75" r="2.5" fill="#93c5fd" />
+                <circle cx="17.5" cy="11.75" r="2.5" fill="#6ffbbe" />
               </svg>
             </div>
 
             {title ? (
-              <h1 className="font-['Plus_Jakarta_Sans'] text-[18px] font-bold tracking-tight text-[#0b1c30] truncate max-w-[170px]">
+              <h1 className="font-['Plus_Jakarta_Sans'] text-[17px] font-bold tracking-tight text-[#0b1c30] truncate max-w-[150px]">
                 {title}
               </h1>
             ) : (
               <div className="flex flex-col justify-center">
                 <div className="flex items-center gap-1.5 leading-none">
                   <span className="font-['Plus_Jakarta_Sans'] text-[18px] text-[#0b1c30] font-bold tracking-tight">
-                    funda<span className="text-[#2563eb]">.</span>
+                    funda<span className="text-[#004ac6]">.</span>
                   </span>
-                  <span className="px-1.5 py-0.5 rounded-full bg-[#e5eeff] text-[#434655] text-[10px] uppercase font-bold tracking-wider">
-                    PRO
+                  <span className="px-1.5 py-0.5 rounded-full bg-[#004ac6] text-white text-[9px] uppercase font-extrabold tracking-wider">
+                    NG
                   </span>
                 </div>
                 <span className="text-[10px] text-[#737686] font-medium tracking-tight">
-                  Powered by Pollar
+                  Pollar Institutional
                 </span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Right: Notifications & User Avatar */}
+        {/* Right: Currency Toggle, Notifications & User Avatar */}
         <div className="flex items-center gap-1.5 relative">
+          {onToggleCurrency && (
+            <button
+              onClick={onToggleCurrency}
+              title={`Switch currency display (currently ${displayCurrency})`}
+              className="px-2.5 py-1 rounded-full bg-[#e5eeff] hover:bg-[#dce9ff] text-[#004ac6] font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer border border-[#c3c6d7]/40 shadow-2xs"
+            >
+              <span className="text-[12px]">{displayCurrency === 'USD' ? '$ USD' : '₦ NGN'}</span>
+              <span className="material-symbols-outlined text-[14px]">swap_horiz</span>
+            </button>
+          )}
+
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center text-[#434655] hover:text-[#0b1c30] transition-colors cursor-pointer"
+            className="relative min-w-[40px] min-h-[40px] w-10 h-10 rounded-full flex items-center justify-center text-[#434655] hover:text-[#0b1c30] transition-colors cursor-pointer"
             aria-label="Notifications"
           >
-            <span className="material-symbols-outlined text-[22px]">notifications</span>
+            <span className="material-symbols-outlined text-[21px]">notifications</span>
             {unreadCount > 0 && (
-              <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-[#004ac6] ring-2 ring-[#f8f9ff] animate-pulse" />
+              <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#ba1a1a] ring-2 ring-[#f8f9ff] animate-pulse" />
             )}
           </button>
 
           <button
             onClick={onNavigateProfile}
-            className="w-8 h-8 rounded-full bg-[#004ac6] text-white flex items-center justify-center shadow-sm min-w-[32px] min-h-[32px] cursor-pointer hover:opacity-90 active:scale-95 transition-all"
+            title="Victor Nwoguji (Treasury Admin)"
+            className="w-8 h-8 rounded-full bg-[#004ac6] text-white flex items-center justify-center shadow-sm min-w-[32px] min-h-[32px] cursor-pointer hover:opacity-90 active:scale-95 transition-all text-[12px] font-bold"
             aria-label="User Profile"
           >
-            <span className="material-symbols-outlined text-white text-[18px]">person</span>
+            VN
           </button>
 
           {/* Notifications Dropdown */}

@@ -42,15 +42,15 @@ export const DepositResolutionModal: React.FC<DepositResolutionModalProps> = ({
         <div className="p-3 bg-[#eff4ff] rounded-2xl text-[12px] space-y-1">
           <div className="flex justify-between font-bold text-[#0b1c30]">
             <span>Depositor:</span>
-            <span>David O. Miller</span>
+            <span>Emeka K. Obi</span>
           </div>
           <div className="flex justify-between text-[#434655]">
             <span>Incoming Transfer:</span>
-            <span className="font-mono font-bold text-[#006242]">+$1,200.00 USD</span>
+            <span className="font-mono font-bold text-[#006242]">+$1,200.00 USD (≈ ₦1,926,600)</span>
           </div>
           <div className="flex justify-between text-[#434655]">
             <span>Bank Source:</span>
-            <span>Barclays ****1104</span>
+            <span>Providus Bank • 9902****12</span>
           </div>
         </div>
 

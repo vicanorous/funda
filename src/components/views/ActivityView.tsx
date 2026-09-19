@@ -3,17 +3,17 @@ import { Transaction } from '../../types';
 
 interface ActivityViewProps {
   transactions: Transaction[];
+  displayCurrency?: 'USD' | 'NGN';
   onOpenMerkleProof: (txHash?: string) => void;
 }
 
 export const ActivityView: React.FC<ActivityViewProps> = ({
   transactions,
+  displayCurrency = 'USD',
   onOpenMerkleProof,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterPill, setFilterPill] = useState<'all' | 'deposits' | 'cashout' | 'fx' | 'joint'>(
-    'all',
-  );
+  const [filterPill, setFilterPill] = useState<'all' | 'deposits' | 'cashout' | 'fx' | 'joint'>('all');
 
   const handleDownloadCsv = () => {
     const csvHeader = 'Date,Type,Amount,Currency,Remark,Hash,Status\n';
@@ -32,6 +32,31 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  const filtered = transactions.filter((t) => {
+    if (filterPill === 'deposits' && t.type !== 'DEPOSIT') return false;
+    if (filterPill === 'cashout' && t.type !== 'WITHDRAWAL') return false;
+    if (filterPill === 'fx' && t.type !== 'FX_EXCHANGE') return false;
+    if (filterPill === 'joint' && !t.accountName?.toLowerCase().includes('joint') && !t.accountName?.toLowerCase().includes('vault')) {
+      if (filterPill === 'joint') return false;
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      return (
+        t.remark?.toLowerCase().includes(q) ||
+        t.txHash?.toLowerCase().includes(q) ||
+        t.accountName?.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const formatTxAmount = (amountUsd: number) => {
+    if (displayCurrency === 'NGN') {
+      return `₦${(amountUsd * 1605.5).toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
+    }
+    return `$${amountUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+  };
+
   return (
     <div className="flex flex-col w-full pb-16 space-y-4">
       {/* Settled Velocity & Merkle Tree Sync Header */}
@@ -40,17 +65,16 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
           <span className="text-[12px] text-[#737686] font-semibold">Settled Velocity (30D)</span>
           <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#e5eeff] text-[#004ac6] text-[11px] font-bold">
             <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6] animate-pulse" />
-            <span>Merkle Block #19,842,109</span>
+            <span>Pollar Block #19,842,109</span>
           </div>
         </div>
 
         <div className="flex items-baseline justify-between">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-[20px] text-[#434655] font-semibold">$</span>
-            <span className="font-['Plus_Jakarta_Sans'] text-[32px] font-extrabold text-[#0b1c30]">
-              18,450.00
+            <span className="font-['Plus_Jakarta_Sans'] text-[30px] font-extrabold text-[#0b1c30]">
+              {formatTxAmount(18450)}
             </span>
-            <span className="text-[12px] text-[#434655] font-semibold">USD</span>
+            <span className="text-[12px] text-[#434655] font-semibold">{displayCurrency}</span>
           </div>
           <span className="text-[12px] text-[#006242] font-bold flex items-center gap-0.5">
             <span className="material-symbols-outlined text-[16px]">trending_up</span>
@@ -105,149 +129,86 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
 
       {/* Date-Grouped Transaction Stream */}
       <div className="space-y-3">
-        {/* Today Group */}
         <div className="space-y-1.5">
           <span className="text-[11px] font-bold text-[#737686] uppercase tracking-wider px-1">
-            Today
+            Transaction Activity ({filtered.length})
           </span>
           <div className="bg-white rounded-2xl shadow-sm border border-[#e5eeff]/60 divide-y divide-[#eff4ff] overflow-hidden">
-            {/* 1. FX Swap */}
-            <div
-              onClick={() => onOpenMerkleProof('0x3a91...44f2')}
-              className="p-3.5 flex items-center justify-between hover:bg-[#eff4ff]/50 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#6ffbbe]/30 text-[#006242] flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">sync_alt</span>
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-[14px] text-[#0b1c30]">Converted USD to HKD</span>
-                    <span className="px-1.5 py-0.2 rounded bg-[#6ffbbe] text-[#002113] text-[9px] font-bold">
-                      FX Stamp
+            {filtered.map((tx) => (
+              <div
+                key={tx.id}
+                onClick={() => onOpenMerkleProof(tx.txHash)}
+                className="p-3.5 flex items-center justify-between hover:bg-[#eff4ff]/50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      tx.type === 'DEPOSIT'
+                        ? 'bg-[#6ffbbe]/30 text-[#006242]'
+                        : tx.type === 'FX_EXCHANGE'
+                        ? 'bg-[#eff4ff] text-[#004ac6]'
+                        : 'bg-[#ffdad6] text-[#ba1a1a]'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">
+                      {tx.type === 'DEPOSIT'
+                        ? 'south_west'
+                        : tx.type === 'FX_EXCHANGE'
+                        ? 'sync_alt'
+                        : 'arrow_outward'}
                     </span>
                   </div>
-                  <span className="text-[11px] text-[#434655]">1 USD = 7.8214 HKD • 14:20</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="font-mono text-[14px] font-bold text-[#006242]">
-                  +HK$ 15,642.80
-                </span>
-                <span className="text-[10px] text-[#006242] block font-semibold">Completed</span>
-              </div>
-            </div>
-
-            {/* 2. Bank Wire Deposit */}
-            <div
-              onClick={() => onOpenMerkleProof('0x4e11...9b23')}
-              className="p-3.5 flex items-center justify-between hover:bg-[#eff4ff]/50 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#dbe1ff] text-[#004ac6] flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">account_balance</span>
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-[14px] text-[#0b1c30]">Bank Deposit (ACH)</span>
-                    <span className="px-1.5 py-0.2 rounded bg-[#e5eeff] text-[#434655] text-[9px] font-semibold">
-                      Standard Chartered
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[14px] text-[#0b1c30]">{tx.remark}</span>
+                      <span
+                        className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                          tx.type === 'FX_EXCHANGE'
+                            ? 'bg-[#6ffbbe] text-[#002113]'
+                            : tx.type === 'DEPOSIT'
+                            ? 'bg-[#dbe1ff] text-[#004ac6]'
+                            : 'bg-[#eff4ff] text-[#434655]'
+                        }`}
+                      >
+                        {tx.tag || tx.type}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-[#434655]">
+                      {tx.accountName} • {tx.createdAt}
                     </span>
                   </div>
-                  <span className="text-[11px] text-[#434655]">Wire Reference FD-V9941 • 11:05</span>
+                </div>
+                <div className="text-right">
+                  <span
+                    className={`font-mono text-[14px] font-bold ${
+                      tx.type === 'DEPOSIT' || tx.type === 'FX_EXCHANGE'
+                        ? 'text-[#006242]'
+                        : 'text-[#ba1a1a]'
+                    }`}
+                  >
+                    {tx.type === 'WITHDRAWAL' ? '-' : '+'}
+                    {formatTxAmount(tx.amount)}
+                  </span>
+                  <span
+                    className={`text-[10px] block font-semibold ${
+                      tx.status === 'EXECUTED'
+                        ? 'text-[#006242]'
+                        : tx.status === 'HELD_IN_ESCROW'
+                        ? 'text-[#ba1a1a]'
+                        : 'text-[#004ac6]'
+                    }`}
+                  >
+                    {tx.status === 'EXECUTED'
+                      ? 'Completed'
+                      : tx.status === 'HELD_IN_ESCROW'
+                      ? 'Escrow Locked'
+                      : 'Pending Vote'}
+                  </span>
                 </div>
               </div>
-              <div className="text-right">
-                <span className="font-mono text-[14px] font-bold text-[#0b1c30]">+$2,500.00</span>
-                <span className="text-[10px] text-[#004ac6] block font-semibold flex items-center gap-0.5 justify-end">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6] animate-ping" />
-                  <span>Processing</span>
-                </span>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
-
-        {/* Yesterday Group */}
-        <div className="space-y-1.5">
-          <span className="text-[11px] font-bold text-[#737686] uppercase tracking-wider px-1">
-            Yesterday
-          </span>
-          <div className="bg-white rounded-2xl shadow-sm border border-[#e5eeff]/60 divide-y divide-[#eff4ff] overflow-hidden">
-            {/* 3. Joint Contribution */}
-            <div
-              onClick={() => onOpenMerkleProof('0x8f2a...7c91')}
-              className="p-3.5 flex items-center justify-between hover:bg-[#eff4ff]/50 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#e5eeff] text-[#737686] flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">arrow_outward</span>
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-[14px] text-[#0b1c30]">Contribution: House Fund</span>
-                    <span className="px-1.5 py-0.2 rounded bg-[#dbe1ff] text-[#004ac6] text-[9px] font-bold">
-                      Joint Vault
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-[#434655]">Direct Internal • 18:42</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="font-mono text-[14px] font-bold text-[#0b1c30]">-$1,200.00</span>
-                <span className="text-[10px] text-[#006242] block font-semibold">Completed</span>
-              </div>
-            </div>
-
-            {/* 4. AWS Server Outflow */}
-            <div
-              onClick={() => onOpenMerkleProof('0x992b...e4a8')}
-              className="p-3.5 flex items-center justify-between hover:bg-[#eff4ff]/50 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">cloud_queue</span>
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-[14px] text-[#0b1c30]">AWS Cloud Hosting</span>
-                    <span className="px-1.5 py-0.2 rounded bg-[#e5eeff] text-[#434655] text-[9px] font-semibold">
-                      Alpha Ventures
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-[#434655]">Invoice #INV-9921 • Multi-sig</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="font-mono text-[14px] font-bold text-[#ba1a1a]">-$6,450.00</span>
-                <span className="text-[10px] text-[#006242] block font-semibold">Consensus Sealed</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Merkle-Proof Certified Audit Footer Badge */}
-      <div
-        onClick={() => onOpenMerkleProof()}
-        className="p-4 rounded-2xl bg-[#e5eeff] space-y-2 cursor-pointer hover:bg-[#dce9ff] transition-colors"
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#004ac6] text-[20px]">verified</span>
-            <span className="font-['Plus_Jakarta_Sans'] text-[13px] font-bold text-[#0b1c30]">
-              Merkle-Proof Certified Audit
-            </span>
-          </div>
-          <span className="text-[11px] font-bold text-[#004ac6] flex items-center gap-0.5">
-            <span>Verify</span>
-            <span className="material-symbols-outlined text-[14px]">open_in_new</span>
-          </span>
-        </div>
-        <p className="text-[11px] text-[#434655] leading-relaxed">
-          Every transaction in this ledger contains a verifiable SHA-256 Merkle root hash anchored
-          to Pollar Validator Node #07.
-        </p>
       </div>
     </div>
   );

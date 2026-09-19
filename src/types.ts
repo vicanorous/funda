@@ -113,12 +113,15 @@ export interface Transaction {
 
 export interface PersonalWalletState {
   totalUsd: number;
+  displayCurrency?: 'USD' | 'NGN';
   yieldActive: boolean;
   yieldPercent: number;
   holdings: {
     usd: number;
-    hkd: number;
+    ngn: number;
     eur: number;
+    hkd?: number;
+    gbp?: number;
   };
   guardrails: {
     autoTopupEnabled: boolean;
@@ -127,6 +130,23 @@ export interface PersonalWalletState {
     lastTopupDate: string;
     targetUsdReserveFloor: number;
   };
+}
+
+export interface NigerianBank {
+  code: string;
+  name: string;
+  shortName: string;
+  nipSupported: boolean;
+}
+
+export interface PollarSdkStatus {
+  connected: boolean;
+  environment: 'production' | 'sandbox' | 'testnet';
+  publishableKey: string;
+  nodeName: string;
+  latencyMs: number;
+  network: 'mainnet' | 'testnet';
+  stellarActive: boolean;
 }
 
 export interface NotificationItem {
