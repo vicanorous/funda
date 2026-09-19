@@ -1,16 +1,22 @@
 import React, { useState } from 'react';
 
 interface DepositResolutionModalProps {
+  depositorName?: string;
+  amount?: number;
+  bankSource?: string;
   onClose: () => void;
   onResolved: (role: 'CONTRIBUTOR' | 'CO_OWNER', memo: string) => void;
 }
 
 export const DepositResolutionModal: React.FC<DepositResolutionModalProps> = ({
+  depositorName = 'Unverified Depositor',
+  amount = 0,
+  bankSource = 'External Transfer',
   onClose,
   onResolved,
 }) => {
   const [selectedRole, setSelectedRole] = useState<'CONTRIBUTOR' | 'CO_OWNER'>('CONTRIBUTOR');
-  const [memo, setMemo] = useState('Verified identity via consulting agreement #AGR-442');
+  const [memo, setMemo] = useState('Verified identity and authorized vault allocation');
 
   const handleConfirm = () => {
     onResolved(selectedRole, memo);
@@ -42,15 +48,17 @@ export const DepositResolutionModal: React.FC<DepositResolutionModalProps> = ({
         <div className="p-3 bg-[#eff4ff] rounded-2xl text-[12px] space-y-1">
           <div className="flex justify-between font-bold text-[#0b1c30]">
             <span>Depositor:</span>
-            <span>Emeka K. Obi</span>
+            <span>{depositorName}</span>
           </div>
           <div className="flex justify-between text-[#434655]">
             <span>Incoming Transfer:</span>
-            <span className="font-mono font-bold text-[#006242]">+$1,200.00 USD (≈ ₦1,926,600)</span>
+            <span className="font-mono font-bold text-[#006242]">
+              +${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD
+            </span>
           </div>
           <div className="flex justify-between text-[#434655]">
             <span>Bank Source:</span>
-            <span>Providus Bank • 9902****12</span>
+            <span>{bankSource}</span>
           </div>
         </div>
 

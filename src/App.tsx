@@ -14,8 +14,9 @@ import { ActivityView } from './components/views/ActivityView';
 import { MerkleProofModal } from './components/views/MerkleProofModal';
 import { CreateJointAccountModal } from './components/views/CreateJointAccountModal';
 import { DepositResolutionModal } from './components/views/DepositResolutionModal';
+import { OnboardingView } from './components/views/OnboardingView';
 import { FundaStore } from './lib/pollar/store';
-import { JointAccount, Transaction, PersonalWalletState } from './types';
+import { JointAccount, Transaction, PersonalWalletState, User } from './types';
 
 export default function App() {
   const pollar = usePollar();
@@ -26,6 +27,7 @@ export default function App() {
   );
 
   // Modals state
+  const [selectedVaultId, setSelectedVaultId] = useState<string | null>(null);
   const [merkleModal, setMerkleModal] = useState<{ open: boolean; txHash?: string }>({
     open: false,
   });
@@ -101,7 +103,10 @@ export default function App() {
   let headerTitle: string | undefined = undefined;
   let showBack = false;
 
-  if (currentRoute === 'vault-detail') {
+  if (currentRoute === 'onboarding') {
+    headerTitle = 'Pollar Onboarding';
+    showBack = true;
+  } else if (currentRoute === 'vault-detail') {
     headerTitle = 'Vault Multi-Sig Detail';
     showBack = true;
   } else if (currentRoute === 'ledger') {
@@ -127,12 +132,36 @@ export default function App() {
     } else if (
       currentRoute === 'wallet/fund' ||
       currentRoute === 'wallet/cash-out' ||
-      currentRoute === 'wallet'
+      currentRoute === 'wallet' ||
+      currentRoute === 'onboarding'
     ) {
       setCurrentRoute('home');
     } else {
       setCurrentRoute('home');
     }
+  };
+
+  // Onboarding completion and session handlers
+  const handleCompleteOnboarding = (
+    userData: Partial<User>,
+    initialVault?: { name: string; currency: string; balance?: number },
+  ) => {
+    const updated = FundaStore.completeOnboarding(userData, initialVault);
+    setFundaState(updated);
+    showToast(`Welcome ${userData.name || 'Member'}! Pollar Smart Account active.`);
+    setCurrentRoute('home');
+  };
+
+  const handleLogout = () => {
+    try {
+      pollar.logout?.();
+    } catch (e) {
+      console.warn('[Pollar] logout error:', e);
+    }
+    const updated = FundaStore.logoutUser();
+    setFundaState(updated);
+    showToast('Logged out. Please sign in or deploy a new account.');
+    setCurrentRoute('onboarding');
   };
 
   // Action callbacks that update the persistent FundaStore
@@ -210,13 +239,23 @@ export default function App() {
         notifications={fundaState.notifications}
         onSelectNotification={(route) => setCurrentRoute(route)}
         onNavigateProfile={() => setCurrentRoute('wallet')}
+        onStartOnboarding={() => setCurrentRoute('onboarding')}
         displayCurrency={displayCurrency}
         onToggleCurrency={handleToggleCurrency}
         userProfile={fundaState.user}
       />
 
-      {/* Main Responsive View Container (Max-w-md matching the mobile app screens) */}
-      <main className="w-full max-w-md px-4 pt-3 flex-1 flex flex-col">
+      {/* Main Responsive View Container (Max-w-md matching mobile app screens with clearance for fixed header & footer) */}
+      <main className="w-full max-w-md px-4 pt-20 pb-24 flex-1 flex flex-col">
+        {currentRoute === 'onboarding' && (
+          <OnboardingView
+            initialUser={fundaState.user}
+            onComplete={handleCompleteOnboarding}
+            onCancel={() => setCurrentRoute('home')}
+            isExistingUser={!!fundaState.user?.isOnboarded}
+          />
+        )}
+
         {currentRoute === 'home' && (
           <HomeView
             jointAccounts={fundaState.jointAccounts}
@@ -226,9 +265,12 @@ export default function App() {
             onToggleCurrency={handleToggleCurrency}
             onNavigate={(route) => setCurrentRoute(route)}
             onOpenVault={(id) => {
+              setSelectedVaultId(id);
               setCurrentRoute('vault-detail');
             }}
             onOpenWithdrawalReview={() => setCurrentRoute('vault-detail')}
+            user={fundaState.user}
+            onStartOnboarding={() => setCurrentRoute('onboarding')}
           />
         )}
 
@@ -236,7 +278,10 @@ export default function App() {
           <JointAccountsView
             jointAccounts={fundaState.jointAccounts}
             displayCurrency={displayCurrency}
-            onOpenVault={(id) => setCurrentRoute('vault-detail')}
+            onOpenVault={(id) => {
+              setSelectedVaultId(id);
+              setCurrentRoute('vault-detail');
+            }}
             onOpenWithdrawalReview={() => setCurrentRoute('vault-detail')}
             onOpenLedgerAudit={() => setCurrentRoute('ledger')}
             onOpenCreateModal={() => setIsCreateVaultOpen(true)}
@@ -246,8 +291,19 @@ export default function App() {
 
         {currentRoute === 'vault-detail' && (
           <VaultDetailView
+            vault={
+              fundaState.jointAccounts.find((v) => v.id === selectedVaultId) ||
+              fundaState.jointAccounts[0]
+            }
+            pendingTx={fundaState.transactions.find(
+              (t) =>
+                t.status === 'PENDING' &&
+                (!selectedVaultId || t.accountId === selectedVaultId),
+            )}
+            displayCurrency={displayCurrency}
             onBack={() => setCurrentRoute('joint')}
             onViewLedger={() => setCurrentRoute('ledger')}
+            onDeposit={(vaultId) => setCurrentRoute('wallet/fund')}
             onVoteDecision={handleVoteDecision}
           />
         )}
@@ -267,6 +323,9 @@ export default function App() {
             displayCurrency={displayCurrency}
             onToggleCurrency={handleToggleCurrency}
             onNavigate={(route) => setCurrentRoute(route)}
+            user={fundaState.user}
+            onOpenOnboarding={() => setCurrentRoute('onboarding')}
+            onLogout={handleLogout}
           />
         )}
 
@@ -279,6 +338,8 @@ export default function App() {
 
         {currentRoute === 'wallet/exchange' && (
           <FxExchangeView
+            walletState={fundaState.personalWallet}
+            jointAccounts={fundaState.jointAccounts}
             onBack={() => setCurrentRoute('home')}
             onSuccess={handleFxSuccess}
           />

@@ -38,7 +38,7 @@ export const DepositFundsView: React.FC<DepositFundsViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full pb-16 space-y-4">
+    <div className="flex flex-col w-full space-y-4">
       {/* Destination Account Card */}
       <div className="p-3.5 bg-white rounded-2xl shadow-sm border border-[#e5eeff]/60 flex items-center justify-between">
         <div className="flex items-center gap-3">

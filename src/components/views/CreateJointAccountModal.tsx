@@ -15,7 +15,7 @@ export const CreateJointAccountModal: React.FC<CreateJointAccountModalProps> = (
   const [category, setCategory] = useState<'ventures' | 'property' | 'community'>('ventures');
   const [currency, setCurrency] = useState<'USD' | 'NGN'>('USD');
   const [coOwnerEmail, setCoOwnerEmail] = useState('');
-  const [initialDeposit, setInitialDeposit] = useState('5000.00');
+  const [initialDeposit, setInitialDeposit] = useState('0.00');
   const [isDeploying, setIsDeploying] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -28,7 +28,7 @@ export const CreateJointAccountModal: React.FC<CreateJointAccountModalProps> = (
         name,
         creatorWallet: '0x8841...9PLR',
         coOwners: [coOwnerEmail || 'treasury.partner@funda.ng'],
-        initialBalance: parseFloat(initialDeposit) || 5000,
+        initialBalance: parseFloat(initialDeposit) || 0,
         currency,
         quorumNumerator: 2,
         quorumDenominator: 3,

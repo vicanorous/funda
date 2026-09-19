@@ -12,7 +12,7 @@ import {
 } from '../../data/mockStore';
 import { JointAccount, NotificationItem, PersonalWalletState, Transaction, User } from '../../types';
 
-const STORAGE_KEY = 'funda_real_balances_v1';
+const STORAGE_KEY = 'funda_real_balances_v2';
 
 export interface AppState {
   user: User;
@@ -39,12 +39,24 @@ export class FundaStore {
     }
 
     try {
+      // Remove deprecated v1 key if present to purge mock storage
+      localStorage.removeItem('funda_real_balances_v1');
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed: AppState = JSON.parse(stored);
         if (!parsed.preferredCurrency) {
           parsed.preferredCurrency = 'NGN';
         }
+        // Filter out any stale mock data
+        parsed.transactions = (parsed.transactions || []).filter(
+          (t) => !t.id.includes('aws') && !t.id.includes('emeka') && t.id !== 'tx_ngn_fx_conversion' && t.id !== 'tx_nip_onramp_deposit'
+        );
+        parsed.notifications = (parsed.notifications || []).filter(
+          (n) => !n.title.toLowerCase().includes('approval') && !n.title.toLowerCase().includes('flagged')
+        );
+        parsed.jointAccounts = (parsed.jointAccounts || []).filter(
+          (j) => !j.id.includes('vault_lagos_ventures') && !j.id.includes('vault_logistics') && !j.id.includes('vault_emergency')
+        );
         return parsed;
       }
     } catch (e) {
@@ -209,7 +221,7 @@ export class FundaStore {
       name: newAccountData.name || 'New Joint Vault',
       pollarWalletId: newAccountData.pollarWalletId || `plr_vault_${Date.now()}`,
       createdBy: state.user.id,
-      balance: newAccountData.balance || 5000.0,
+      balance: newAccountData.balance || 0.0,
       currency: newAccountData.currency || 'USD',
       governanceRule: newAccountData.governanceRule || 'Multi-Sig 2/3',
       coOwnersCount: newAccountData.coOwnersCount || 2,
@@ -252,6 +264,81 @@ export class FundaStore {
     const ngnInUsd = state.personalWallet.holdings.ngn / 1605.5;
     state.personalWallet.totalUsd = Number((state.personalWallet.holdings.usd + ngnInUsd).toFixed(2));
     this.saveState(state);
+  }
+
+  public static completeOnboarding(
+    userData: Partial<User>,
+    initialVault?: { name: string; currency: string; balance?: number },
+  ): AppState {
+    const state = this.loadState();
+    state.user = {
+      ...state.user,
+      ...userData,
+      isOnboarded: true,
+      onboardedAt: new Date().toISOString(),
+    };
+    if (userData.preferredCurrency) {
+      state.preferredCurrency = userData.preferredCurrency;
+    }
+    if (userData.walletAddress) {
+      state.pollarAddress = userData.walletAddress;
+      state.pollarWalletConnected = true;
+    }
+    if (initialVault && initialVault.name && initialVault.name.trim()) {
+      const newVault: JointAccount = {
+        id: `vault_${Date.now()}`,
+        name: initialVault.name.trim(),
+        pollarWalletId: `plr_vlt_${Math.random().toString(36).substring(2, 8)}`,
+        createdBy: state.user.walletAddress || '0x8841...9PLR',
+        balance: initialVault.balance || 0,
+        currency: initialVault.currency || state.preferredCurrency,
+        governanceRule: 'Multi-Sig 2/3',
+        coOwnersCount: 2,
+        contributorsCount: 1,
+        fundedThisCycle: 0,
+        category: 'ventures',
+        lastActivity: 'Provisioned on Pollar Node Gateway',
+      };
+      state.jointAccounts.unshift(newVault);
+    }
+    this.saveState(state);
+    return state;
+  }
+
+  public static updateUser(userData: Partial<User>): AppState {
+    const state = this.loadState();
+    state.user = {
+      ...state.user,
+      ...userData,
+    };
+    if (userData.preferredCurrency) {
+      state.preferredCurrency = userData.preferredCurrency;
+    }
+    if (userData.walletAddress) {
+      state.pollarAddress = userData.walletAddress;
+      state.pollarWalletConnected = true;
+    }
+    this.saveState(state);
+    return state;
+  }
+
+  public static resetOnboarding(): AppState {
+    const state = this.loadState();
+    state.user.isOnboarded = false;
+    this.saveState(state);
+    return state;
+  }
+
+  public static logoutUser(): AppState {
+    const state = this.loadState();
+    state.user = {
+      ...state.user,
+      isOnboarded: false,
+    };
+    state.pollarWalletConnected = false;
+    state.pollarAddress = undefined;
+    this.saveState(state);
+    return state;
   }
 
   public static resetState(): AppState {

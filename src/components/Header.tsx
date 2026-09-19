@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NotificationItem } from '../types';
+import { NotificationItem, User } from '../types';
 
 interface HeaderProps {
   title?: string;
@@ -10,7 +10,8 @@ interface HeaderProps {
   onToggleCurrency?: () => void;
   onSelectNotification?: (route: string) => void;
   onNavigateProfile?: () => void;
-  userProfile?: { name?: string; email?: string };
+  onStartOnboarding?: () => void;
+  userProfile?: User;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -22,10 +23,20 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleCurrency,
   onSelectNotification,
   onNavigateProfile,
+  onStartOnboarding,
   userProfile,
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const initials = userProfile?.name
+    ? userProfile.name
+        .split(' ')
+        .map((p) => p[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : 'VN';
 
   return (
     <header className="fixed top-0 w-full z-50 bg-[#f8f9ff]/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe">
@@ -80,14 +91,24 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Currency Toggle, Notifications & User Avatar */}
         <div className="flex items-center gap-1.5 relative">
+          {userProfile?.isOnboarded === false && onStartOnboarding && (
+            <button
+              onClick={onStartOnboarding}
+              className="px-2.5 py-1 rounded-full bg-[#004ac6] hover:bg-[#003ea8] text-white font-bold text-[11px] shadow-2xs cursor-pointer flex items-center gap-1 transition-all"
+            >
+              <span className="material-symbols-outlined text-[13px]">how_to_reg</span>
+              <span>Onboard</span>
+            </button>
+          )}
+
           {onToggleCurrency && (
             <button
               onClick={onToggleCurrency}
-              title={`Switch currency display (currently ${displayCurrency})`}
-              className="px-2.5 py-1 rounded-full bg-[#e5eeff] hover:bg-[#dce9ff] text-[#004ac6] font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer border border-[#c3c6d7]/40 shadow-2xs"
+              title={`Switch currency (currently ${displayCurrency})`}
+              className="w-8 h-8 rounded-full bg-[#e5eeff] hover:bg-[#dce9ff] text-[#004ac6] font-bold text-[15px] flex items-center justify-center transition-all cursor-pointer border border-[#c3c6d7]/40 shadow-2xs active:scale-95"
+              aria-label="Toggle currency"
             >
-              <span className="text-[12px]">{displayCurrency === 'USD' ? '$ USD' : '₦ NGN'}</span>
-              <span className="material-symbols-outlined text-[14px]">swap_horiz</span>
+              <span className="leading-none">{displayCurrency === 'USD' ? '$' : '₦'}</span>
             </button>
           )}
 
@@ -104,11 +125,11 @@ export const Header: React.FC<HeaderProps> = ({
 
           <button
             onClick={onNavigateProfile}
-            title="Victor Nwoguji (Treasury Admin)"
+            title={userProfile?.name ? `${userProfile.name} (Treasury Admin)` : 'Treasury Admin'}
             className="w-8 h-8 rounded-full bg-[#004ac6] text-white flex items-center justify-center shadow-sm min-w-[32px] min-h-[32px] cursor-pointer hover:opacity-90 active:scale-95 transition-all text-[12px] font-bold"
             aria-label="User Profile"
           >
-            VN
+            {initials}
           </button>
 
           {/* Notifications Dropdown */}

@@ -4,10 +4,11 @@ import {
   SUPPORTED_CURRENCIES,
   SupportedCurrency,
 } from '../../lib/pollar/exchange';
-import { PersonalWalletState } from '../../types';
+import { JointAccount, PersonalWalletState } from '../../types';
 
 interface FxExchangeViewProps {
   walletState?: PersonalWalletState;
+  jointAccounts?: JointAccount[];
   onBack: () => void;
   onSuccess: (
     spentAmount: number,
@@ -20,13 +21,14 @@ interface FxExchangeViewProps {
 
 export const FxExchangeView: React.FC<FxExchangeViewProps> = ({
   walletState,
+  jointAccounts = [],
   onBack,
   onSuccess,
 }) => {
   const [fromCurrency, setFromCurrency] = useState<string>('USD');
   const [toCurrency, setToCurrency] = useState<string>('NGN');
   const [payAmount, setPayAmount] = useState('1000.00');
-  const [targetAccount, setTargetAccount] = useState<'personal' | 'vault_lagos_ventures'>('personal');
+  const [targetAccount, setTargetAccount] = useState<string>('personal');
   const [countdown, setCountdown] = useState(45);
   const [isExecuting, setIsExecuting] = useState(false);
 
@@ -77,7 +79,7 @@ export const FxExchangeView: React.FC<FxExchangeViewProps> = ({
         quote.receivedAmount,
         fromCurrency,
         toCurrency,
-        targetAccount === 'vault_lagos_ventures' ? 'vault_lagos_ventures' : undefined,
+        targetAccount === 'personal' ? undefined : targetAccount,
       );
     }, 1200);
   };
@@ -86,7 +88,7 @@ export const FxExchangeView: React.FC<FxExchangeViewProps> = ({
   const toInfo = SUPPORTED_CURRENCIES.find((c) => c.code === toCurrency);
 
   return (
-    <div className="flex flex-col w-full pb-16 space-y-4">
+    <div className="flex flex-col w-full space-y-4">
       {/* Liquidity Live & Rate Lock Countdown */}
       <div className="p-3 bg-[#e5eeff] rounded-2xl flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-2">
@@ -255,7 +257,7 @@ export const FxExchangeView: React.FC<FxExchangeViewProps> = ({
         <span className="text-[12px] font-bold text-[#737686] uppercase tracking-wider block">
           Credit Converted Funds To
         </span>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => setTargetAccount('personal')}
@@ -269,18 +271,21 @@ export const FxExchangeView: React.FC<FxExchangeViewProps> = ({
             <span className="text-[10px] text-[#737686]">Sole ownership treasury</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setTargetAccount('vault_lagos_ventures')}
-            className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
-              targetAccount === 'vault_lagos_ventures'
-                ? 'bg-[#eff4ff] border-[#004ac6] ring-1 ring-[#004ac6]'
-                : 'bg-white border-[#e5eeff]'
-            }`}
-          >
-            <span className="text-[12px] font-bold text-[#0b1c30] block">Lagos Tech Ventures</span>
-            <span className="text-[10px] text-[#737686]">Multi-Sig 2/3 Vault</span>
-          </button>
+          {jointAccounts.map((vault) => (
+            <button
+              key={vault.id}
+              type="button"
+              onClick={() => setTargetAccount(vault.id)}
+              className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                targetAccount === vault.id
+                  ? 'bg-[#eff4ff] border-[#004ac6] ring-1 ring-[#004ac6]'
+                  : 'bg-white border-[#e5eeff]'
+              }`}
+            >
+              <span className="text-[12px] font-bold text-[#0b1c30] block truncate">{vault.name}</span>
+              <span className="text-[10px] text-[#737686]">{vault.governanceRule} Vault</span>
+            </button>
+          ))}
         </div>
       </div>
 

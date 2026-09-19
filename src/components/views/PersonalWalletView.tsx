@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { PollarExchangeService } from '../../lib/pollar/exchange';
-import { PersonalWalletState } from '../../types';
+import { PersonalWalletState, User } from '../../types';
 
 interface PersonalWalletViewProps {
   walletState: PersonalWalletState;
   displayCurrency?: 'USD' | 'NGN';
   onToggleCurrency?: () => void;
   onNavigate: (route: string) => void;
+  user?: User;
+  onOpenOnboarding?: () => void;
+  onLogout?: () => void;
 }
 
 export const PersonalWalletView: React.FC<PersonalWalletViewProps> = ({
@@ -14,9 +17,13 @@ export const PersonalWalletView: React.FC<PersonalWalletViewProps> = ({
   displayCurrency = 'USD',
   onToggleCurrency,
   onNavigate,
+  user,
+  onOpenOnboarding,
+  onLogout,
 }) => {
   const [hideBalances, setHideBalances] = useState(false);
   const [autoTopup, setAutoTopup] = useState(walletState.guardrails.autoTopupEnabled);
+  const [copiedAddress, setCopiedAddress] = useState(false);
 
   const rawUsd = walletState.holdings.usd || 0;
   const rawNgn = walletState.holdings.ngn || 0;
@@ -28,35 +35,60 @@ export const PersonalWalletView: React.FC<PersonalWalletViewProps> = ({
   const usdPercent = totalValuationUsd > 0 ? Math.round((rawUsd / totalValuationUsd) * 100) : 50;
   const ngnPercent = totalValuationUsd > 0 ? 100 - usdPercent : 50;
 
+  const initials = user?.name
+    ? user.name
+        .split(' ')
+        .map((p) => p[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : 'VN';
+
+  const handleCopyWallet = () => {
+    if (!user?.walletAddress) return;
+    navigator.clipboard?.writeText(user.walletAddress);
+    setCopiedAddress(true);
+    setTimeout(() => setCopiedAddress(false), 2000);
+  };
+
   return (
-    <div className="flex flex-col w-full pb-16 space-y-4">
+    <div className="flex flex-col w-full space-y-4">
       {/* Top User Profile Identity Header */}
       <div className="flex items-center justify-between pt-1">
         <div className="flex items-center gap-2.5">
           <div className="w-10 h-10 rounded-full bg-[#004ac6] text-white flex items-center justify-center font-bold text-[13px] shadow-xs">
-            VN
+            {initials}
           </div>
           <div>
             <div className="flex items-center gap-1.5">
               <h1 className="font-['Plus_Jakarta_Sans'] text-[17px] font-bold text-[#0b1c30]">
-                Victor Nwoguji
+                {user?.name || 'Victor Nwoguji'}
               </h1>
               <span className="px-1.5 py-0.2 rounded-full bg-[#007d55]/15 text-[#006242] text-[10px] font-bold flex items-center gap-0.5">
                 <span className="material-symbols-outlined text-[12px]">verified</span>
-                <span>Tier 2 Verified</span>
+                <span>
+                  {user?.kycStatus === 'TIER_2_VERIFIED'
+                    ? 'Tier 2 Verified'
+                    : user?.kycStatus === 'TIER_1_PENDING'
+                    ? 'Tier 1 Pending'
+                    : 'Pending KYC'}
+                </span>
               </span>
             </div>
-            <span className="font-mono text-[11px] text-[#737686]">Lagos Treasury ID: #8841-PLR</span>
+            <span className="font-mono text-[11px] text-[#737686]">
+              {user?.organization ? `${user.organization} • ` : ''}ID: #
+              {(user?.walletAddress || '8841').slice(2, 6).toUpperCase()}-PLR
+            </span>
           </div>
         </div>
         <div className="flex items-center gap-1">
           {onToggleCurrency && (
             <button
               onClick={onToggleCurrency}
-              className="px-2.5 py-1 rounded-full bg-[#e5eeff] hover:bg-[#dce9ff] text-[#004ac6] font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer border border-[#c3c6d7]/40 shadow-2xs"
+              title={`Switch currency (currently ${displayCurrency})`}
+              className="w-8 h-8 rounded-full bg-[#e5eeff] hover:bg-[#dce9ff] text-[#004ac6] font-bold text-[15px] flex items-center justify-center transition-all cursor-pointer border border-[#c3c6d7]/40 shadow-2xs active:scale-95"
             >
-              <span>{displayCurrency === 'USD' ? '$ USD' : '₦ NGN'}</span>
-              <span className="material-symbols-outlined text-[13px]">swap_horiz</span>
+              <span className="leading-none">{displayCurrency === 'USD' ? '$' : '₦'}</span>
             </button>
           )}
           <button
@@ -293,10 +325,10 @@ export const PersonalWalletView: React.FC<PersonalWalletViewProps> = ({
         <div className="p-3 rounded-xl bg-[#eff4ff] flex items-center justify-between">
           <div className="space-y-0.5">
             <span className="font-bold text-[13px] text-[#0b1c30] block">
-              Auto-Topup for Lagos Tech Ventures OpEx
+              Auto-Topup for Joint Vaults
             </span>
             <p className="text-[11px] text-[#434655]">
-              Dispatches $500.00 from Personal USD if vault falls below $1,000.
+              Automatically dispatches funds from Personal USD if an active vault drops below reserve floor.
             </p>
           </div>
           <button
@@ -327,6 +359,75 @@ export const PersonalWalletView: React.FC<PersonalWalletViewProps> = ({
             <span className="font-mono font-bold text-[13px] text-[#0b1c30]">$5,000.00</span>
             <span className="text-[10px] text-[#006242] block font-bold">Protected</span>
           </div>
+        </div>
+      </div>
+
+      {/* Pollar SDK Smart Account Identity & Onboarding Card */}
+      <div className="rounded-2xl bg-white p-4 shadow-sm border border-[#e5eeff]/60 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#004ac6] text-[20px]">
+              key
+            </span>
+            <h2 className="font-['Plus_Jakarta_Sans'] text-[16px] font-bold text-[#0b1c30]">
+              Pollar SDK Smart Account
+            </h2>
+          </div>
+          <span className="px-2 py-0.5 rounded-full bg-[#6ffbbe]/25 text-[#006242] text-[10px] font-bold">
+            Passkey Secured
+          </span>
+        </div>
+
+        <div className="p-3 rounded-xl bg-[#eff4ff] space-y-2 text-[12px]">
+          <div className="flex items-center justify-between">
+            <span className="text-[#737686]">Cryptographic Address</span>
+            <button
+              onClick={handleCopyWallet}
+              className="font-mono text-[11px] font-bold text-[#004ac6] flex items-center gap-1 hover:underline cursor-pointer"
+            >
+              <span>{(user?.walletAddress || '0x8841459A019b9c922572aD81C65E5f085188419F').slice(0, 16)}...</span>
+              <span className="material-symbols-outlined text-[14px]">
+                {copiedAddress ? 'check' : 'content_copy'}
+              </span>
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-[#737686]">Smart Account Custody</span>
+            <span className="font-bold text-[#0b1c30]">
+              {user?.pollarCustodyType ? user.pollarCustodyType.toUpperCase() : 'SMART CONTRACT (SOROBAN)'}
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-[#737686]">Pollar Consensus Node</span>
+            <span className="font-bold text-[#006242] flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#006242] animate-pulse" />
+              <span>Stellar Testnet / Active</span>
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          {onOpenOnboarding && (
+            <button
+              onClick={onOpenOnboarding}
+              className="py-2 px-3 rounded-xl bg-[#004ac6] hover:bg-[#003ea8] text-white font-bold text-[12px] flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">how_to_reg</span>
+              <span>Re-run Onboarding</span>
+            </button>
+          )}
+
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="py-2 px-3 rounded-xl bg-[#eff4ff] hover:bg-[#dce9ff] text-[#ba1a1a] font-bold text-[12px] flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-[#dce9ff]"
+            >
+              <span className="material-symbols-outlined text-[16px]">logout</span>
+              <span>Switch Account</span>
+            </button>
+          )}
         </div>
       </div>
 

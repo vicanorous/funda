@@ -57,28 +57,31 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
     return `$${amountUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
   };
 
+  const totalSettledVolume = transactions
+    .filter((t) => t.status === 'EXECUTED')
+    .reduce((sum, t) => sum + t.amount, 0);
+
   return (
-    <div className="flex flex-col w-full pb-16 space-y-4">
+    <div className="flex flex-col w-full space-y-4">
       {/* Settled Velocity & Merkle Tree Sync Header */}
       <div className="relative overflow-hidden rounded-2xl bg-white p-4 shadow-sm border border-[#e5eeff]/60 space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-[12px] text-[#737686] font-semibold">Settled Velocity (30D)</span>
+          <span className="text-[12px] text-[#737686] font-semibold">Settled Treasury Volume</span>
           <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#e5eeff] text-[#004ac6] text-[11px] font-bold">
             <span className="w-1.5 h-1.5 rounded-full bg-[#004ac6] animate-pulse" />
-            <span>Pollar Block #19,842,109</span>
+            <span>Pollar Node Finality</span>
           </div>
         </div>
 
         <div className="flex items-baseline justify-between">
           <div className="flex items-baseline gap-1.5">
             <span className="font-['Plus_Jakarta_Sans'] text-[30px] font-extrabold text-[#0b1c30]">
-              {formatTxAmount(18450)}
+              {formatTxAmount(totalSettledVolume)}
             </span>
             <span className="text-[12px] text-[#434655] font-semibold">{displayCurrency}</span>
           </div>
-          <span className="text-[12px] text-[#006242] font-bold flex items-center gap-0.5">
-            <span className="material-symbols-outlined text-[16px]">trending_up</span>
-            <span>+14.2%</span>
+          <span className="text-[12px] text-[#737686] font-semibold">
+            {transactions.length} total {transactions.length === 1 ? 'event' : 'events'}
           </span>
         </div>
       </div>
@@ -133,81 +136,97 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
           <span className="text-[11px] font-bold text-[#737686] uppercase tracking-wider px-1">
             Transaction Activity ({filtered.length})
           </span>
-          <div className="bg-white rounded-2xl shadow-sm border border-[#e5eeff]/60 divide-y divide-[#eff4ff] overflow-hidden">
-            {filtered.map((tx) => (
-              <div
-                key={tx.id}
-                onClick={() => onOpenMerkleProof(tx.txHash)}
-                className="p-3.5 flex items-center justify-between hover:bg-[#eff4ff]/50 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      tx.type === 'DEPOSIT'
-                        ? 'bg-[#6ffbbe]/30 text-[#006242]'
-                        : tx.type === 'FX_EXCHANGE'
-                        ? 'bg-[#eff4ff] text-[#004ac6]'
-                        : 'bg-[#ffdad6] text-[#ba1a1a]'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[20px]">
-                      {tx.type === 'DEPOSIT'
-                        ? 'south_west'
-                        : tx.type === 'FX_EXCHANGE'
-                        ? 'sync_alt'
-                        : 'arrow_outward'}
-                    </span>
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-[14px] text-[#0b1c30]">{tx.remark}</span>
-                      <span
-                        className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                          tx.type === 'FX_EXCHANGE'
-                            ? 'bg-[#6ffbbe] text-[#002113]'
-                            : tx.type === 'DEPOSIT'
-                            ? 'bg-[#dbe1ff] text-[#004ac6]'
-                            : 'bg-[#eff4ff] text-[#434655]'
-                        }`}
-                      >
-                        {tx.tag || tx.type}
+          {filtered.length === 0 ? (
+            <div className="bg-white rounded-2xl p-8 text-center shadow-sm border border-[#e5eeff]/60 flex flex-col items-center justify-center gap-2">
+              <div className="w-12 h-12 rounded-2xl bg-[#e5eeff] text-[#004ac6] flex items-center justify-center">
+                <span className="material-symbols-outlined text-[28px]">receipt_long</span>
+              </div>
+              <h3 className="font-['Plus_Jakarta_Sans'] text-[15px] font-bold text-[#0b1c30]">
+                No Transactions Found
+              </h3>
+              <p className="text-[12px] text-[#737686] max-w-xs">
+                {searchQuery || filterPill !== 'all'
+                  ? 'No transactions matched your search criteria.'
+                  : 'Your deposits, FX conversions, and disbursements will be logged here.'}
+              </p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm border border-[#e5eeff]/60 divide-y divide-[#eff4ff] overflow-hidden">
+              {filtered.map((tx) => (
+                <div
+                  key={tx.id}
+                  onClick={() => onOpenMerkleProof(tx.txHash)}
+                  className="p-3.5 flex items-center justify-between hover:bg-[#eff4ff]/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        tx.type === 'DEPOSIT'
+                          ? 'bg-[#6ffbbe]/30 text-[#006242]'
+                          : tx.type === 'FX_EXCHANGE'
+                          ? 'bg-[#eff4ff] text-[#004ac6]'
+                          : 'bg-[#ffdad6] text-[#ba1a1a]'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[20px]">
+                        {tx.type === 'DEPOSIT'
+                          ? 'south_west'
+                          : tx.type === 'FX_EXCHANGE'
+                          ? 'sync_alt'
+                          : 'arrow_outward'}
                       </span>
                     </div>
-                    <span className="text-[11px] text-[#434655]">
-                      {tx.accountName} • {tx.createdAt}
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-[14px] text-[#0b1c30]">{tx.remark}</span>
+                        <span
+                          className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                            tx.type === 'FX_EXCHANGE'
+                              ? 'bg-[#6ffbbe] text-[#002113]'
+                              : tx.type === 'DEPOSIT'
+                              ? 'bg-[#dbe1ff] text-[#004ac6]'
+                              : 'bg-[#eff4ff] text-[#434655]'
+                          }`}
+                        >
+                          {tx.tag || tx.type}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-[#434655]">
+                        {tx.accountName} • {tx.createdAt}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span
+                      className={`font-mono text-[14px] font-bold ${
+                        tx.type === 'DEPOSIT' || tx.type === 'FX_EXCHANGE'
+                          ? 'text-[#006242]'
+                          : 'text-[#ba1a1a]'
+                      }`}
+                    >
+                      {tx.type === 'WITHDRAWAL' ? '-' : '+'}
+                      {formatTxAmount(tx.amount)}
+                    </span>
+                    <span
+                      className={`text-[10px] block font-semibold ${
+                        tx.status === 'EXECUTED'
+                          ? 'text-[#006242]'
+                          : tx.status === 'HELD_IN_ESCROW'
+                          ? 'text-[#ba1a1a]'
+                          : 'text-[#004ac6]'
+                      }`}
+                    >
+                      {tx.status === 'EXECUTED'
+                        ? 'Completed'
+                        : tx.status === 'HELD_IN_ESCROW'
+                        ? 'Escrow Locked'
+                        : 'Pending Vote'}
                     </span>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span
-                    className={`font-mono text-[14px] font-bold ${
-                      tx.type === 'DEPOSIT' || tx.type === 'FX_EXCHANGE'
-                        ? 'text-[#006242]'
-                        : 'text-[#ba1a1a]'
-                    }`}
-                  >
-                    {tx.type === 'WITHDRAWAL' ? '-' : '+'}
-                    {formatTxAmount(tx.amount)}
-                  </span>
-                  <span
-                    className={`text-[10px] block font-semibold ${
-                      tx.status === 'EXECUTED'
-                        ? 'text-[#006242]'
-                        : tx.status === 'HELD_IN_ESCROW'
-                        ? 'text-[#ba1a1a]'
-                        : 'text-[#004ac6]'
-                    }`}
-                  >
-                    {tx.status === 'EXECUTED'
-                      ? 'Completed'
-                      : tx.status === 'HELD_IN_ESCROW'
-                      ? 'Escrow Locked'
-                      : 'Pending Vote'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

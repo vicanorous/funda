@@ -5,21 +5,15 @@ interface AuditableLedgerViewProps {
   transactions?: Transaction[];
   displayCurrency?: 'USD' | 'NGN';
   onOpenMerkleProof: (txHash?: string) => void;
-  onOpenDepositResolution: () => void;
+  onOpenDepositResolution?: () => void;
 }
 
 export const AuditableLedgerView: React.FC<AuditableLedgerViewProps> = ({
   transactions = [],
   displayCurrency = 'USD',
   onOpenMerkleProof,
-  onOpenDepositResolution,
 }) => {
   const [filter, setFilter] = useState<'all' | 'pending' | 'deposits' | 'withdrawals'>('all');
-  const [contractorSigned, setContractorSigned] = useState(false);
-  const [contractorRejected, setContractorRejected] = useState(false);
-  const [unknownResolved, setUnknownResolved] = useState<'pending' | 'contributor' | 'refunded'>(
-    'pending',
-  );
 
   const totalDeposits = transactions
     .filter((t) => t.status === 'EXECUTED' && t.type === 'DEPOSIT')
@@ -27,7 +21,7 @@ export const AuditableLedgerView: React.FC<AuditableLedgerViewProps> = ({
   const totalWithdrawals = transactions
     .filter((t) => t.status === 'EXECUTED' && t.type === 'WITHDRAWAL')
     .reduce((sum, t) => sum + t.amount, 0);
-  const realLedgerVaultBalance = Math.max(totalDeposits - totalWithdrawals, 0);
+  const netLedgerBalance = Math.max(totalDeposits - totalWithdrawals, 0);
 
   const formatAmount = (usdVal: number) => {
     if (displayCurrency === 'NGN') {
@@ -36,99 +30,43 @@ export const AuditableLedgerView: React.FC<AuditableLedgerViewProps> = ({
     return `$${usdVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
   };
 
+  const filteredTransactions = transactions.filter((t) => {
+    if (filter === 'all') return true;
+    if (filter === 'pending') return t.status === 'PENDING' || t.status === 'HELD_IN_ESCROW';
+    if (filter === 'deposits') return t.type === 'DEPOSIT';
+    if (filter === 'withdrawals') return t.type === 'WITHDRAWAL';
+    return true;
+  });
+
   return (
-    <div className="flex flex-col w-full pb-16 space-y-4">
-      {/* Unknown Depositor Detected ACTION REQUIRED Banner */}
-      {unknownResolved === 'pending' ? (
-        <div className="rounded-2xl p-4 bg-[#ffdad6] text-[#93000a] shadow-sm border border-[#ba1a1a]/20 space-y-3 animate-fade-in">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white text-[#ba1a1a] flex items-center justify-center flex-shrink-0 shadow-xs">
-              <span className="material-symbols-outlined text-[20px]">warning</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="font-['Plus_Jakarta_Sans'] text-[14px] font-bold">
-                  Unknown Depositor Detected
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-[#ba1a1a] text-white text-[10px] font-extrabold uppercase tracking-wide">
-                  Action Required
-                </span>
-              </div>
-              <p className="text-[12px] text-[#93000a]/90 leading-relaxed mt-1">
-                External transfer of <strong>{formatAmount(1200)}</strong> received from unverified account
-                holder <strong>Emeka K. Obi</strong> (Providus Bank • 9902****12). Pending depositors
-                cannot view shared vault ledger until approved by consensus.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#ba1a1a]/15">
-            <button
-              onClick={() => setUnknownResolved('refunded')}
-              className="px-3 py-1.5 rounded-xl bg-white text-[#ba1a1a] font-bold text-[12px] hover:bg-[#ba1a1a] hover:text-white transition-colors cursor-pointer"
-            >
-              Refund Deposit
-            </button>
-            <button
-              onClick={() => {
-                onOpenDepositResolution();
-                setUnknownResolved('contributor');
-              }}
-              className="px-4 py-1.5 rounded-xl bg-[#004ac6] text-white font-bold text-[12px] hover:bg-[#2563eb] shadow-sm transition-colors cursor-pointer"
-            >
-              Add Contributor
-            </button>
-          </div>
-        </div>
-      ) : unknownResolved === 'contributor' ? (
-        <div className="p-3 bg-[#6ffbbe]/30 text-[#002113] rounded-2xl flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#006242] text-[20px]">
-              check_circle
-            </span>
-            <span className="text-[12px] font-bold">
-              Emeka K. Obi verified and added as Contributor
-            </span>
-          </div>
-          <span className="text-[10px] text-[#006242] font-semibold">Ledger access granted</span>
-        </div>
-      ) : (
-        <div className="p-3 bg-[#e5eeff] text-[#004ac6] rounded-2xl flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[20px]">undo</span>
-            <span className="text-[12px] font-bold">
-              Deposit {formatAmount(1200)} refunded to Providus Bank • 9902****12
-            </span>
-          </div>
-          <span className="text-[10px] font-semibold">Escrow closed</span>
-        </div>
-      )}
-
-      {/* Multi-Sig Joint Vault #04 Header Bento */}
+    <div className="flex flex-col w-full space-y-4">
+      {/* Treasury Ledger Summary Bento */}
       <div className="relative overflow-hidden rounded-2xl bg-white p-4 shadow-sm border border-[#e5eeff]/60">
         <div className="absolute -right-8 -bottom-8 w-36 h-36 bg-[#d3e4fe]/30 rounded-full blur-2xl pointer-events-none" />
         <div className="relative z-10 flex flex-col space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#737686]">
-                Multi-Sig Joint Vault #01
+                Immutable Ledger
               </span>
               <span className="px-2 py-0.5 rounded-full bg-[#dbe1ff] text-[#004ac6] text-[10px] font-bold">
-                Lagos Tech Ventures OpEx
+                Treasury Audit
               </span>
             </div>
-            <span className="font-mono text-[11px] text-[#737686]">plr_vault_01_los</span>
+            <span className="font-mono text-[11px] text-[#737686]">
+              {transactions.length} Recorded {transactions.length === 1 ? 'Event' : 'Events'}
+            </span>
           </div>
 
           <div className="flex items-baseline justify-between">
             <div className="flex items-baseline gap-1.5">
               <span className="font-['Plus_Jakarta_Sans'] text-[30px] font-extrabold text-[#0b1c30]">
-                {formatAmount(realLedgerVaultBalance)}
+                {formatAmount(netLedgerBalance)}
               </span>
               <span className="text-[12px] text-[#434655] font-semibold">{displayCurrency}</span>
             </div>
             <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#007d55]/15 text-[#006242]">
-              2/3 Quorum Active
+              Cryptographic Consensus
             </span>
           </div>
 
@@ -176,7 +114,7 @@ export const AuditableLedgerView: React.FC<AuditableLedgerViewProps> = ({
               : 'text-[#434655] hover:text-[#0b1c30]'
           }`}
         >
-          All Logs
+          All Logs ({transactions.length})
         </button>
         <button
           onClick={() => setFilter('pending')}
@@ -186,7 +124,7 @@ export const AuditableLedgerView: React.FC<AuditableLedgerViewProps> = ({
               : 'text-[#434655] hover:text-[#0b1c30]'
           }`}
         >
-          Pending Votes
+          Pending
         </button>
         <button
           onClick={() => setFilter('deposits')}
@@ -210,213 +148,121 @@ export const AuditableLedgerView: React.FC<AuditableLedgerViewProps> = ({
         </button>
       </div>
 
-      {/* Ledger Cards Matching Screen 4 */}
+      {/* Ledger Cards */}
       <div className="flex flex-col space-y-3">
-        {/* Item 1: AWS Multi-Region Hosting */}
-        {(filter === 'all' || filter === 'withdrawals') && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#e5eeff]/60 space-y-2.5">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#e5eeff] text-[#004ac6] flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">cloud</span>
-                </div>
-                <div>
-                  <h3 className="font-['Plus_Jakarta_Sans'] text-[15px] font-bold text-[#0b1c30]">
-                    AWS Multi-Region Hosting
-                  </h3>
-                  <span className="text-[11px] text-[#737686]">Cloud Infrastructure • Ref: INV-9921</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="font-mono text-[15px] font-bold text-[#ba1a1a]">
-                  -{formatAmount(3500)}
-                </span>
-                <div className="flex items-center justify-end gap-1 text-[10px] text-[#006242] font-bold">
-                  <span className="material-symbols-outlined text-[12px]">check_circle</span>
-                  <span>EXECUTED</span>
-                </div>
-              </div>
+        {filteredTransactions.length === 0 ? (
+          <div className="rounded-2xl bg-white p-8 text-center shadow-sm border border-[#e5eeff]/60 flex flex-col items-center justify-center gap-2.5">
+            <div className="w-12 h-12 rounded-2xl bg-[#e5eeff] text-[#004ac6] flex items-center justify-center">
+              <span className="material-symbols-outlined text-[28px]">history_toggle_off</span>
             </div>
-
-            <div className="p-2.5 rounded-xl bg-[#eff4ff] text-[11px] text-[#434655] space-y-1">
-              <div className="flex justify-between">
-                <span>Co-Signers:</span>
-                <span className="font-semibold text-[#0b1c30]">Victor Nwoguji, Sarah Chen (2/3)</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Transaction Hash:</span>
-                <button
-                  onClick={() => onOpenMerkleProof('0x8f2a...7c91')}
-                  className="font-mono text-[#004ac6] hover:underline cursor-pointer"
-                >
-                  0x8f2a...7c91
-                </button>
-              </div>
-              <div className="flex justify-between">
-                <span>Ledger Index:</span>
-                <span className="font-mono font-bold text-[#0b1c30]">#4092</span>
-              </div>
+            <div>
+              <h3 className="font-['Plus_Jakarta_Sans'] text-[15px] font-bold text-[#0b1c30]">
+                No Ledger Transactions
+              </h3>
+              <p className="text-[12px] text-[#737686] mt-1 max-w-xs mx-auto">
+                Transactions executed across your personal wallet and joint vaults will be chronologically indexed here.
+              </p>
             </div>
           </div>
-        )}
+        ) : (
+          filteredTransactions.map((tx) => (
+            <div
+              key={tx.id}
+              className={`bg-white rounded-2xl p-4 shadow-sm border space-y-2.5 ${
+                tx.status === 'PENDING'
+                  ? 'border-l-4 border-l-[#2563eb] border-[#e5eeff]/60'
+                  : tx.status === 'HELD_IN_ESCROW'
+                  ? 'border-[#ffdad6]'
+                  : 'border-[#e5eeff]/60'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                      tx.type === 'DEPOSIT'
+                        ? 'bg-[#6ffbbe]/30 text-[#006242]'
+                        : tx.type === 'FX_EXCHANGE'
+                        ? 'bg-[#eff4ff] text-[#004ac6]'
+                        : 'bg-[#ffdad6] text-[#ba1a1a]'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">
+                      {tx.type === 'DEPOSIT'
+                        ? 'arrow_downward'
+                        : tx.type === 'FX_EXCHANGE'
+                        ? 'sync_alt'
+                        : 'arrow_upward'}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-['Plus_Jakarta_Sans'] text-[15px] font-bold text-[#0b1c30] truncate">
+                      {tx.remark || (tx.type === 'DEPOSIT' ? 'Deposit' : tx.type === 'FX_EXCHANGE' ? 'FX Swap' : 'Disbursement')}
+                    </h3>
+                    <span className="text-[11px] text-[#737686] truncate block">
+                      {tx.tag || tx.accountName || 'Treasury'} • {tx.timeAgo || tx.createdAt || 'Recent'}
+                    </span>
+                  </div>
+                </div>
 
-        {/* Item 2: Nigerian Bank Direct NIP Deposit */}
-        {(filter === 'all' || filter === 'deposits') && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#e5eeff]/60 space-y-2.5">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#6ffbbe]/30 text-[#006242] flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">south_west</span>
-                </div>
-                <div>
-                  <h3 className="font-['Plus_Jakarta_Sans'] text-[15px] font-bold text-[#0b1c30]">
-                    Direct NIP Bank Deposit
-                  </h3>
-                  <span className="text-[11px] text-[#737686]">Providus Bank NUBAN via Pollar</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="font-mono text-[15px] font-bold text-[#006242]">
-                  +{formatAmount(15000)}
-                </span>
-                <div className="flex items-center justify-end gap-1 text-[10px] text-[#006242] font-bold">
-                  <span className="material-symbols-outlined text-[12px]">verified</span>
-                  <span>VERIFIED</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-[#eff4ff] text-[11px] text-[#434655] space-y-1">
-              <div className="flex justify-between">
-                <span>Verified Depositor:</span>
-                <span className="font-semibold text-[#0b1c30]">Victor Nwoguji (Co-Owner)</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Transaction Hash:</span>
-                <button
-                  onClick={() => onOpenMerkleProof('0x4e11...9b23')}
-                  className="font-mono text-[#004ac6] hover:underline cursor-pointer"
-                >
-                  0x4e11...9b23
-                </button>
-              </div>
-              <div className="flex justify-between">
-                <span>Ledger Index:</span>
-                <span className="font-mono font-bold text-[#0b1c30]">#4091</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Item 3: G-Tech Infrastructure Payout (Pending Vote) */}
-        {(filter === 'all' || filter === 'pending' || filter === 'withdrawals') && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#e5eeff]/60 space-y-2.5 border-l-4 border-l-[#2563eb]">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#dae2fd] text-[#004ac6] flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">badge</span>
-                </div>
-                <div>
-                  <h3 className="font-['Plus_Jakarta_Sans'] text-[15px] font-bold text-[#0b1c30]">
-                    G-Tech Systems Contractor
-                  </h3>
-                  <span className="text-[11px] text-[#737686]">Lagos Engineering Sprint</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="font-mono text-[15px] font-bold text-[#0b1c30]">
-                  -{formatAmount(2100)}
-                </span>
-                <div className="flex items-center justify-end gap-1 text-[10px] text-[#004ac6] font-bold">
-                  <span className="material-symbols-outlined text-[12px]">hourglass_empty</span>
-                  <span>PENDING VOTE</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-[#eff4ff] text-[11px] text-[#434655] space-y-1">
-              <div className="flex justify-between">
-                <span>Multi-Sig Progress:</span>
-                <span className="font-semibold text-[#004ac6]">
-                  {contractorSigned ? '2/2 Signed (Met)' : '1/2 Signed (Victor Nwoguji)'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span>Recipient:</span>
-                <span className="text-[#0b1c30]">G-Tech Infrastructure Solutions (Lagos)</span>
-              </div>
-            </div>
-
-            {!contractorSigned && !contractorRejected ? (
-              <div className="flex items-center justify-end gap-2 pt-1">
-                <button
-                  onClick={() => setContractorRejected(true)}
-                  className="px-3 py-1 bg-white text-[#ba1a1a] rounded-lg text-[11px] font-bold border border-[#ffdad6] cursor-pointer"
-                >
-                  Reject
-                </button>
-                <button
-                  onClick={() => setContractorSigned(true)}
-                  className="px-3 py-1 bg-[#004ac6] text-white rounded-lg text-[11px] font-bold hover:bg-[#2563eb] shadow-xs cursor-pointer"
-                >
-                  Sign &amp; Authorize
-                </button>
-              </div>
-            ) : contractorSigned ? (
-              <div className="flex items-center justify-center p-1.5 bg-[#6ffbbe]/30 text-[#002113] rounded-xl text-[11px] font-bold gap-1">
-                <span className="material-symbols-outlined text-[14px] text-[#006242]">
-                  check_circle
-                </span>
-                <span>Signature Submitted • Dispatched to Network</span>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center p-1.5 bg-[#ffdad6] text-[#ba1a1a] rounded-xl text-[11px] font-bold gap-1">
-                <span className="material-symbols-outlined text-[14px]">cancel</span>
-                <span>Proposal Rejected</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Item 4: Unknown Depositor Escrow Lock */}
-        {(filter === 'all' || filter === 'deposits') && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#ffdad6] space-y-2.5">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#ffdad6] text-[#ba1a1a] flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">lock_person</span>
-                </div>
-                <div>
-                  <h3 className="font-['Plus_Jakarta_Sans'] text-[15px] font-bold text-[#0b1c30]">
-                    Emeka K. Obi
-                  </h3>
-                  <span className="text-[11px] text-[#ba1a1a] font-semibold">
-                    Held in escrow • Pending KYC
+                <div className="text-right flex-shrink-0 pl-2">
+                  <span
+                    className={`font-mono text-[15px] font-bold ${
+                      tx.type === 'DEPOSIT' || tx.type === 'FX_EXCHANGE'
+                        ? 'text-[#006242]'
+                        : 'text-[#ba1a1a]'
+                    }`}
+                  >
+                    {tx.type === 'WITHDRAWAL' ? '-' : '+'}
+                    {formatAmount(tx.amount)}
                   </span>
+                  <div className="flex items-center justify-end gap-1 text-[10px] font-bold mt-0.5">
+                    <span
+                      className={`px-2 py-0.2 rounded-full ${
+                        tx.status === 'EXECUTED'
+                          ? 'bg-[#6ffbbe]/40 text-[#002113]'
+                          : tx.status === 'HELD_IN_ESCROW'
+                          ? 'bg-[#ffdad6] text-[#ba1a1a]'
+                          : 'bg-[#dae2fd] text-[#131b2e]'
+                      }`}
+                    >
+                      {tx.status === 'EXECUTED'
+                        ? 'EXECUTED'
+                        : tx.status === 'HELD_IN_ESCROW'
+                        ? 'ESCROW'
+                        : 'PENDING VOTE'}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div className="text-right">
-                <span className="font-mono text-[15px] font-bold text-[#ba1a1a]">
-                  +{formatAmount(1200)}
-                </span>
-                <div className="flex items-center justify-end gap-1 text-[10px] text-[#ba1a1a] font-bold">
-                  <span className="material-symbols-outlined text-[12px]">lock</span>
-                  <span>ESCROW LOCK</span>
-                </div>
-              </div>
-            </div>
 
-            <div className="p-2.5 rounded-xl bg-[#ffdad6]/40 text-[11px] text-[#93000a] space-y-1">
-              <div className="flex justify-between">
-                <span>Originating Bank:</span>
-                <span className="font-semibold">Providus Bank • 9902****12</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Audit Condition:</span>
-                <span>Requires Co-Owner Verification Vote</span>
+              <div className="p-2.5 rounded-xl bg-[#eff4ff] text-[11px] text-[#434655] space-y-1">
+                {tx.initiatorName && (
+                  <div className="flex justify-between">
+                    <span>Initiated By:</span>
+                    <span className="font-semibold text-[#0b1c30]">{tx.initiatorName}</span>
+                  </div>
+                )}
+                {tx.txHash && (
+                  <div className="flex justify-between">
+                    <span>Transaction Hash:</span>
+                    <button
+                      onClick={() => onOpenMerkleProof(tx.txHash)}
+                      className="font-mono text-[#004ac6] hover:underline cursor-pointer"
+                    >
+                      {tx.txHash}
+                    </button>
+                  </div>
+                )}
+                {tx.ledgerNumber && (
+                  <div className="flex justify-between">
+                    <span>Ledger Index:</span>
+                    <span className="font-mono font-bold text-[#0b1c30]">#{tx.ledgerNumber}</span>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          ))
         )}
       </div>
 
@@ -429,8 +275,7 @@ export const AuditableLedgerView: React.FC<AuditableLedgerViewProps> = ({
           </span>
         </div>
         <p className="text-[12px] text-[#434655] leading-relaxed">
-          Every entry in this vault corresponds to an immutable Pollar node hash with 2/3 multi-sig
-          consensus verification.
+          Entries are verified on the Pollar settlement protocol with cryptographic consensus signatures.
         </p>
         <button
           onClick={() => onOpenMerkleProof()}

@@ -10,10 +10,10 @@ interface CashOutViewProps {
 
 export const CashOutView: React.FC<CashOutViewProps> = ({ walletState, onBack, onSuccess }) => {
   const [currency, setCurrency] = useState<'USD' | 'NGN'>('NGN');
-  const [amount, setAmount] = useState('150000.00');
+  const [amount, setAmount] = useState('');
   const [selectedBankCode, setSelectedBankCode] = useState('058'); // GTBank
-  const [accountNumber, setAccountNumber] = useState('0124892011');
-  const [accountName, setAccountName] = useState('VICTOR NWOGUJI');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [accountName, setAccountName] = useState('');
   const [route, setRoute] = useState<'instant' | 'standard'>('instant');
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -58,7 +58,7 @@ export const CashOutView: React.FC<CashOutViewProps> = ({ walletState, onBack, o
   };
 
   return (
-    <div className="flex flex-col w-full pb-16 space-y-4">
+    <div className="flex flex-col w-full space-y-4">
       {/* Source Wallet Card */}
       <div className="p-3.5 bg-white rounded-2xl shadow-sm border border-[#e5eeff]/60 flex items-center justify-between">
         <div className="flex items-center gap-3">

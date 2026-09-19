@@ -31,6 +31,12 @@ export interface User {
   walletAddress: string;
   kycStatus: KycStatus;
   avatarUrl?: string;
+  organization?: string;
+  bvnOrNin?: string;
+  isOnboarded?: boolean;
+  pollarCustodyType?: 'smart' | 'internal' | 'external';
+  onboardedAt?: string;
+  preferredCurrency?: 'USD' | 'NGN';
 }
 
 export interface Membership {
