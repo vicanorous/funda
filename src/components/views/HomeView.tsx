@@ -156,13 +156,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </div>
           </div>
 
-          {/* Quick Safe Audit Meta */}
+          {/* Safe Audit Meta */}
           <div className="flex items-center justify-between pt-2 border-t border-white/10 text-white/85">
             <div className="flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[15px]">verified_user</span>
-              <span className="text-[11px] font-medium">Pollar Institutional Rails • Multi-Sig 2/3</span>
+              <span className="text-[11px] font-medium">Cryptographic Multi-Sig Protected</span>
             </div>
-            <span className="font-mono text-[11px] text-white/80 font-medium">Ref #FND-LOS-9941</span>
+            <span className="text-[11px] text-white/80 font-medium">Pollar Smart Account</span>
           </div>
         </div>
       </div>

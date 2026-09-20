@@ -62,7 +62,7 @@ export const PersonalWalletView: React.FC<PersonalWalletViewProps> = ({
           <div>
             <div className="flex items-center gap-1.5">
               <h1 className="font-['Plus_Jakarta_Sans'] text-[17px] font-bold text-[#0b1c30]">
-                {user?.name || 'Victor Nwoguji'}
+                {user?.name || 'Account Owner'}
               </h1>
               <span className="px-1.5 py-0.2 rounded-full bg-[#007d55]/15 text-[#006242] text-[10px] font-bold flex items-center gap-0.5">
                 <span className="material-symbols-outlined text-[12px]">verified</span>
@@ -75,10 +75,11 @@ export const PersonalWalletView: React.FC<PersonalWalletViewProps> = ({
                 </span>
               </span>
             </div>
-            <span className="font-mono text-[11px] text-[#737686]">
-              {user?.organization ? `${user.organization} • ` : ''}ID: #
-              {(user?.walletAddress || '8841').slice(2, 6).toUpperCase()}-PLR
-            </span>
+            {user?.organization ? (
+              <span className="text-[11px] text-[#737686]">{user.organization}</span>
+            ) : user?.email ? (
+              <span className="text-[11px] text-[#737686]">{user.email}</span>
+            ) : null}
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -385,7 +386,7 @@ export const PersonalWalletView: React.FC<PersonalWalletViewProps> = ({
               onClick={handleCopyWallet}
               className="font-mono text-[11px] font-bold text-[#004ac6] flex items-center gap-1 hover:underline cursor-pointer"
             >
-              <span>{(user?.walletAddress || '0x8841459A019b9c922572aD81C65E5f085188419F').slice(0, 16)}...</span>
+              <span>{user?.walletAddress ? `${user.walletAddress.slice(0, 16)}...` : 'Pending Generation'}</span>
               <span className="material-symbols-outlined text-[14px]">
                 {copiedAddress ? 'check' : 'content_copy'}
               </span>
@@ -437,7 +438,7 @@ export const PersonalWalletView: React.FC<PersonalWalletViewProps> = ({
           <span className="material-symbols-outlined text-[18px]">account_balance</span>
         </div>
         <p className="text-[12px] text-[#434655] leading-snug">
-          Integrated with <strong>Pollar Institutional Clearing</strong> and NIBSS Instant Payments (NIP) for sub-second Nigerian banking settlement.
+          Integrated with <strong>Pollar Settlement Rails</strong> and NIBSS Instant Payments (NIP) for sub-second Nigerian banking settlement.
         </p>
       </div>
     </div>

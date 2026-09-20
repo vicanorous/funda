@@ -82,33 +82,22 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 </div>
                 <span className="text-[10px] text-[#737686] font-medium tracking-tight">
-                  Pollar Institutional
+                  Multi-Sig Treasury
                 </span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Right: Currency Toggle, Notifications & User Avatar */}
+        {/* Right: Notifications & User Avatar */}
         <div className="flex items-center gap-1.5 relative">
-          {userProfile?.isOnboarded === false && onStartOnboarding && (
+          {userProfile && userProfile.isOnboarded === false && onStartOnboarding && (
             <button
               onClick={onStartOnboarding}
               className="px-2.5 py-1 rounded-full bg-[#004ac6] hover:bg-[#003ea8] text-white font-bold text-[11px] shadow-2xs cursor-pointer flex items-center gap-1 transition-all"
             >
               <span className="material-symbols-outlined text-[13px]">how_to_reg</span>
               <span>Onboard</span>
-            </button>
-          )}
-
-          {onToggleCurrency && (
-            <button
-              onClick={onToggleCurrency}
-              title={`Switch currency (currently ${displayCurrency})`}
-              className="w-8 h-8 rounded-full bg-[#e5eeff] hover:bg-[#dce9ff] text-[#004ac6] font-bold text-[15px] flex items-center justify-center transition-all cursor-pointer border border-[#c3c6d7]/40 shadow-2xs active:scale-95"
-              aria-label="Toggle currency"
-            >
-              <span className="leading-none">{displayCurrency === 'USD' ? '$' : '₦'}</span>
             </button>
           )}
 

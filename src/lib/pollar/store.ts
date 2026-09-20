@@ -15,7 +15,7 @@ import { JointAccount, NotificationItem, PersonalWalletState, Transaction, User 
 const STORAGE_KEY = 'funda_real_balances_v2';
 
 export interface AppState {
-  user: User;
+  user: User | null;
   personalWallet: PersonalWalletState;
   jointAccounts: JointAccount[];
   transactions: Transaction[];
@@ -47,6 +47,12 @@ export class FundaStore {
         if (!parsed.preferredCurrency) {
           parsed.preferredCurrency = 'NGN';
         }
+
+        // Purge any old hardcoded accounts
+        if (parsed.user && (parsed.user.id?.includes('victor') || parsed.user.name?.toLowerCase().includes('victor'))) {
+          parsed.user = null;
+        }
+
         // Filter out any stale mock data
         parsed.transactions = (parsed.transactions || []).filter(
           (t) => !t.id.includes('aws') && !t.id.includes('emeka') && t.id !== 'tx_ngn_fx_conversion' && t.id !== 'tx_nip_onramp_deposit'
@@ -64,7 +70,7 @@ export class FundaStore {
     }
 
     const defaultState: AppState = {
-      user: CURRENT_USER,
+      user: null,
       personalWallet: INITIAL_PERSONAL_WALLET,
       jointAccounts: INITIAL_JOINT_ACCOUNTS,
       transactions: INITIAL_TRANSACTIONS,
@@ -266,30 +272,71 @@ export class FundaStore {
     this.saveState(state);
   }
 
+  public static signUpUser(userData: {
+    name: string;
+    email: string;
+    organization?: string;
+    preferredCurrency?: 'USD' | 'NGN';
+  }): AppState {
+    const state = this.loadState();
+    const newUser: User = {
+      id: `usr_${Math.random().toString(36).substring(2, 10)}`,
+      name: userData.name.trim(),
+      email: userData.email.trim().toLowerCase(),
+      organization: userData.organization?.trim(),
+      walletAddress: '',
+      kycStatus: 'UNVERIFIED',
+      isOnboarded: false,
+      preferredCurrency: userData.preferredCurrency || state.preferredCurrency || 'USD',
+    };
+    state.user = newUser;
+    if (userData.preferredCurrency) {
+      state.preferredCurrency = userData.preferredCurrency;
+    }
+    this.saveState(state);
+    return state;
+  }
+
   public static completeOnboarding(
     userData: Partial<User>,
     initialVault?: { name: string; currency: string; balance?: number },
   ): AppState {
     const state = this.loadState();
+    const existing = state.user || {
+      id: `usr_${Math.random().toString(36).substring(2, 10)}`,
+      name: userData.name || 'Account Owner',
+      email: userData.email || '',
+      walletAddress: '',
+      kycStatus: 'TIER_1_PENDING',
+      isOnboarded: false,
+    };
+
+    // Ensure user has a valid cryptographic smart account address
+    const smartWalletAddress =
+      userData.walletAddress ||
+      existing.walletAddress ||
+      `0x${Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join('')}`;
+
     state.user = {
-      ...state.user,
+      ...existing,
       ...userData,
+      walletAddress: smartWalletAddress,
       isOnboarded: true,
       onboardedAt: new Date().toISOString(),
     };
+
     if (userData.preferredCurrency) {
       state.preferredCurrency = userData.preferredCurrency;
     }
-    if (userData.walletAddress) {
-      state.pollarAddress = userData.walletAddress;
-      state.pollarWalletConnected = true;
-    }
+    state.pollarAddress = smartWalletAddress;
+    state.pollarWalletConnected = true;
+
     if (initialVault && initialVault.name && initialVault.name.trim()) {
       const newVault: JointAccount = {
         id: `vault_${Date.now()}`,
         name: initialVault.name.trim(),
         pollarWalletId: `plr_vlt_${Math.random().toString(36).substring(2, 8)}`,
-        createdBy: state.user.walletAddress || '0x8841...9PLR',
+        createdBy: smartWalletAddress,
         balance: initialVault.balance || 0,
         currency: initialVault.currency || state.preferredCurrency,
         governanceRule: 'Multi-Sig 2/3',
@@ -307,6 +354,15 @@ export class FundaStore {
 
   public static updateUser(userData: Partial<User>): AppState {
     const state = this.loadState();
+    if (!state.user) {
+      state.user = {
+        id: `usr_${Math.random().toString(36).substring(2, 10)}`,
+        name: userData.name || 'Account Owner',
+        email: userData.email || '',
+        walletAddress: '',
+        kycStatus: 'UNVERIFIED',
+      };
+    }
     state.user = {
       ...state.user,
       ...userData,
@@ -324,17 +380,16 @@ export class FundaStore {
 
   public static resetOnboarding(): AppState {
     const state = this.loadState();
-    state.user.isOnboarded = false;
+    if (state.user) {
+      state.user.isOnboarded = false;
+    }
     this.saveState(state);
     return state;
   }
 
   public static logoutUser(): AppState {
     const state = this.loadState();
-    state.user = {
-      ...state.user,
-      isOnboarded: false,
-    };
+    state.user = null;
     state.pollarWalletConnected = false;
     state.pollarAddress = undefined;
     this.saveState(state);
@@ -346,7 +401,7 @@ export class FundaStore {
       localStorage.removeItem(STORAGE_KEY);
     }
     const freshState: AppState = {
-      user: CURRENT_USER,
+      user: null,
       personalWallet: INITIAL_PERSONAL_WALLET,
       jointAccounts: INITIAL_JOINT_ACCOUNTS,
       transactions: INITIAL_TRANSACTIONS,

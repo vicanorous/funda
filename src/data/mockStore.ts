@@ -8,15 +8,7 @@ import {
   User,
 } from '../types';
 
-export const CURRENT_USER: User = {
-  id: 'usr_victor_nwoguji',
-  name: 'Victor Nwoguji',
-  email: 'vnwoguji@gmail.com',
-  walletAddress: '0x8841...9PLR',
-  kycStatus: 'TIER_2_VERIFIED',
-  avatarUrl:
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
-};
+export const CURRENT_USER: User | null = null;
 
 export const INITIAL_JOINT_ACCOUNTS: JointAccount[] = [];
 

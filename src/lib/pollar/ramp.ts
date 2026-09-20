@@ -44,7 +44,7 @@ export class PollarRampService {
   /**
    * Generates a dedicated Nigerian NUBAN Virtual Account for instant NGN bank transfers (NIBSS NIP)
    */
-  public static getNgnVirtualAccount(userName: string = 'Victor Nwoguji'): NigerianVirtualAccount {
+  public static getNgnVirtualAccount(userName: string = 'Account Owner'): NigerianVirtualAccount {
     return {
       bankName: 'Providus Bank / Pollar NGN Rails',
       accountName: `Funda / ${userName}`,
@@ -58,14 +58,14 @@ export class PollarRampService {
   /**
    * Generates international USD wire instructions
    */
-  public static getUsdWireInstructions(userName: string = 'Victor Nwoguji'): UsdWireInstructions {
+  public static getUsdWireInstructions(userName: string = 'Account Owner'): UsdWireInstructions {
     return {
       beneficiaryName: `Funda Custody LLC (${userName})`,
       bankName: 'J.P. Morgan Chase / Pollar Global Custody',
       routingCode: '021000021',
       swiftBic: 'CHASUS33',
-      accountNumber: '8839-2091-8841',
-      referenceMemo: 'FD-V9941-NG',
+      accountNumber: '8839-2091-7721',
+      referenceMemo: 'FD-V7721-NG',
     };
   }
 
@@ -75,6 +75,7 @@ export class PollarRampService {
   public static async resolveNubanAccount(
     bankCode: string,
     accountNumber: string,
+    fallbackName?: string,
   ): Promise<{ resolvedName: string; verified: boolean }> {
     if (accountNumber.length !== 10) {
       throw new Error('Nigerian NUBAN account number must be exactly 10 digits');
@@ -83,7 +84,7 @@ export class PollarRampService {
     // Realistic Nigerian Treasury Resolution
     await new Promise((resolve) => setTimeout(resolve, 350));
     return {
-      resolvedName: 'VICTOR NWOGUJI (TREASURY)',
+      resolvedName: (fallbackName || 'VERIFIED ACCOUNT HOLDER').toUpperCase(),
       verified: true,
     };
   }
