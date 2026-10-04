@@ -20,7 +20,10 @@ import { JointAccount, Transaction, PersonalWalletState, User } from './types';
 
 export default function App() {
   const pollar = usePollar();
-  const [currentRoute, setCurrentRoute] = useState<string>('home');
+  const [currentRoute, setCurrentRoute] = useState<string>(() => {
+  const state = FundaStore.loadState();
+  return state.user?.isOnboarded ? 'home' : 'onboarding';
+});
   const [fundaState, setFundaState] = useState(() => FundaStore.loadState());
   const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'NGN'>(
     () => FundaStore.loadState().preferredCurrency || 'NGN',
@@ -232,7 +235,8 @@ export default function App() {
       )}
 
       {/* Top Header */}
-      <Header
+      {currentRoute !== 'onboarding' && (
+        <Header
         title={headerTitle}
         showBack={showBack}
         onBack={handleBack}
@@ -242,14 +246,17 @@ export default function App() {
         onStartOnboarding={() => setCurrentRoute('onboarding')}
         displayCurrency={displayCurrency}
         onToggleCurrency={handleToggleCurrency}
-        userProfile={fundaState.user}
+        userProfile={fundaState.user ?? undefined}
       />
+      )}
 
       {/* Main Responsive View Container (Max-w-md matching mobile app screens with clearance for fixed header & footer) */}
-      <main className="w-full max-w-md px-4 pt-20 pb-24 flex-1 flex flex-col">
+      <main className={`w-full max-w-md px-4 flex-1 flex flex-col ${
+        currentRoute === 'onboarding' ? 'py-6' : 'pt-20 pb-24'
+      }`}>
         {currentRoute === 'onboarding' && (
           <OnboardingView
-            initialUser={fundaState.user}
+            initialUser={fundaState.user ?? undefined}
             onComplete={handleCompleteOnboarding}
             onCancel={() => setCurrentRoute('home')}
             isExistingUser={!!fundaState.user?.isOnboarded}
@@ -269,7 +276,7 @@ export default function App() {
               setCurrentRoute('vault-detail');
             }}
             onOpenWithdrawalReview={() => setCurrentRoute('vault-detail')}
-            user={fundaState.user}
+            user={fundaState.user ?? undefined}
             onStartOnboarding={() => setCurrentRoute('onboarding')}
           />
         )}
@@ -323,7 +330,7 @@ export default function App() {
             displayCurrency={displayCurrency}
             onToggleCurrency={handleToggleCurrency}
             onNavigate={(route) => setCurrentRoute(route)}
-            user={fundaState.user}
+            user={fundaState.user ?? undefined}
             onOpenOnboarding={() => setCurrentRoute('onboarding')}
             onLogout={handleLogout}
           />
@@ -362,7 +369,9 @@ export default function App() {
       </main>
 
       {/* Global Bottom Navigation */}
-      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+      {currentRoute !== 'onboarding' && (
+        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+      )}
 
       {/* Merkle Proof Receipt Modal */}
       {merkleModal.open && (

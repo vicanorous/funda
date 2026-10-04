@@ -7,8 +7,7 @@ import './index.css';
 
 const pollarClientConfig = {
   apiKey:
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_POLLAR_PUBLISHABLE_KEY) ||
-    'pk_live_funda_institutional_0921',
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_POLLAR_PUBLISHABLE_KEY),
   stellarNetwork: 'testnet' as const,
 };
 

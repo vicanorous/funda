@@ -36,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
         .join('')
         .slice(0, 2)
         .toUpperCase()
-    : 'VN';
+    : '';
 
   return (
     <header className="fixed top-0 w-full z-50 bg-[#f8f9ff]/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe">
